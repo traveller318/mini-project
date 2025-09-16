@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Set Poppins as the default font family for the entire app */
+@layer base {
+  * {
+    font-family: 'Poppins-Regular';
+  }
+}
