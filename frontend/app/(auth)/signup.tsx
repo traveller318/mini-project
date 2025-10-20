@@ -134,7 +134,7 @@ const SignUp = () => {
             {/* Sign Up Button */}
             <TouchableOpacity
               className="mb-8"
-              onPress={() => router.push("../(tabs)")}
+              onPress={() => router.replace("/(tabs)")}
             >
               <LinearGradient
                 colors={["#2563eb", "#3b82f6"]}

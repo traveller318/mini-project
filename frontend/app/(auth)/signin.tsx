@@ -13,7 +13,7 @@ import React, { useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-
+ 
 const SignIn = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -112,7 +112,7 @@ const SignIn = () => {
             </View>
 
             {/* Login Button */}
-            <TouchableOpacity className="mb-8" onPress={() => router.push('../(tabs)')}>
+            <TouchableOpacity className="mb-8" onPress={() => router.replace('/(tabs)')}>
               <LinearGradient
                 colors={['#2563eb', '#3b82f6']}
                 start={{ x: 0, y: 0 }}
