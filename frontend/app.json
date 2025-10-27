@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to camera to scan receipts and documents.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to photo library to select images for processing."
+        "NSPhotoLibraryUsageDescription": "This app needs access to photo library to select images for processing.",
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice commands and financial queries."
       }
     },
     "android": {
@@ -27,7 +28,8 @@
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO"
       ]
     },
     "web": {
@@ -48,7 +50,14 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow Finix to access your microphone for voice commands and financial queries."
+        }
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

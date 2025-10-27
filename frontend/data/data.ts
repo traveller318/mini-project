@@ -280,6 +280,138 @@ export const allTransactions = [
     date: "27 Sep, 2025",
     icon: "🚗",
     description: "Ride booking"
+  },
+  {
+    id: 11,
+    name: "Zomato",
+    category: "Food & Drink",
+    amount: -320.00,
+    type: "expense",
+    timestamp: "3d ago",
+    date: "10 Oct, 2025",
+    icon: "🍽️",
+    description: "Food delivery"
+  },
+  {
+    id: 12,
+    name: "Starbucks",
+    category: "Food & Drink",
+    amount: -245.00,
+    type: "expense",
+    timestamp: "1w ago",
+    date: "06 Oct, 2025",
+    icon: "☕",
+    description: "Coffee"
+  },
+  {
+    id: 13,
+    name: "Flipkart",
+    category: "Shopping",
+    amount: -899.00,
+    type: "expense",
+    timestamp: "4d ago",
+    date: "09 Oct, 2025",
+    icon: "🛍️",
+    description: "Online shopping"
+  },
+  {
+    id: 14,
+    name: "Myntra",
+    category: "Shopping",
+    amount: -1599.00,
+    type: "expense",
+    timestamp: "1w ago",
+    date: "06 Oct, 2025",
+    icon: "👕",
+    description: "Clothing"
+  },
+  {
+    id: 15,
+    name: "Ola",
+    category: "Transport",
+    amount: -150.00,
+    type: "expense",
+    timestamp: "2d ago",
+    date: "11 Oct, 2025",
+    icon: "🚕",
+    description: "Cab ride"
+  },
+  {
+    id: 16,
+    name: "Metro Card Recharge",
+    category: "Transport",
+    amount: -500.00,
+    type: "expense",
+    timestamp: "1w ago",
+    date: "06 Oct, 2025",
+    icon: "🚇",
+    description: "Public transport"
+  },
+  {
+    id: 17,
+    name: "Netflix",
+    category: "Entertainment",
+    amount: -649.00,
+    type: "expense",
+    timestamp: "2w ago",
+    date: "01 Oct, 2025",
+    icon: "🎬",
+    description: "Streaming subscription"
+  },
+  {
+    id: 18,
+    name: "Amazon Prime",
+    category: "Entertainment",
+    amount: -179.00,
+    type: "expense",
+    timestamp: "2w ago",
+    date: "30 Sep, 2025",
+    icon: "📺",
+    description: "Subscription"
+  },
+  {
+    id: 19,
+    name: "Water Bill",
+    category: "Utilities",
+    amount: -450.00,
+    type: "expense",
+    timestamp: "3w ago",
+    date: "20 Sep, 2025",
+    icon: "💧",
+    description: "Monthly water bill"
+  },
+  {
+    id: 20,
+    name: "Internet Bill",
+    category: "Utilities",
+    amount: -999.00,
+    type: "expense",
+    timestamp: "3w ago",
+    date: "22 Sep, 2025",
+    icon: "📶",
+    description: "Broadband"
+  },
+  {
+    id: 21,
+    name: "Freelance Project",
+    category: "Work",
+    amount: 2500.00,
+    type: "income",
+    timestamp: "1w ago",
+    date: "04 Oct, 2025",
+    icon: "💻",
+    description: "Web development"
+  },
+  {
+    id: 22,
+    name: "Bank Transfer",
+    category: "Transfer",
+    amount: -200.00,
+    type: "expense",
+    timestamp: "5d ago",
+    date: "08 Oct, 2025",
+    icon: "💳",
+    description: "Transfer to friend"
   }
 ];
 
