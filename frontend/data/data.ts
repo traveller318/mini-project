@@ -467,3 +467,120 @@ export const transactionCategories = [
     transactions: allTransactions.filter(t => t.category === "Transfer")
   }
 ];
+
+// Insights Page Data
+export const expenseDomainData = [
+  {
+    name: 'Food & Drink',
+    amount: 1015,
+    color: '#FF6B6B',
+    percentage: 22,
+    legendFontColor: '#1e293b',
+    legendFontSize: 12
+  },
+  {
+    name: 'Shopping',
+    amount: 3797,
+    color: '#8B5CF6',
+    percentage: 28,
+    legendFontColor: '#1e293b',
+    legendFontSize: 12
+  },
+  {
+    name: 'Transport',
+    amount: 935,
+    color: '#F97316',
+    percentage: 14,
+    legendFontColor: '#1e293b',
+    legendFontSize: 12
+  },
+  {
+    name: 'Entertainment',
+    amount: 1038,
+    color: '#F59E0B',
+    percentage: 18,
+    legendFontColor: '#1e293b',
+    legendFontSize: 12
+  },
+  {
+    name: 'Utilities',
+    amount: 3799,
+    color: '#06B6D4',
+    percentage: 18,
+    legendFontColor: '#1e293b',
+    legendFontSize: 12
+  }
+];
+
+export const salaryProgressionData = [
+  { month: 'Apr', salary: 38000 },
+  { month: 'May', salary: 40000 },
+  { month: 'Jun', salary: 39500 },
+  { month: 'Jul', salary: 42000 },
+  { month: 'Aug', salary: 41500 },
+  { month: 'Sep', salary: 45000 },
+  { month: 'Oct', salary: 45000 }
+];
+
+export const financialHealthScore = 78;
+
+export const categoryTrendData = [
+  { month: 'May', food: 850, shopping: 1200, travel: 500, entertainment: 400 },
+  { month: 'Jun', food: 920, shopping: 1350, travel: 800, entertainment: 450 },
+  { month: 'Jul', food: 880, shopping: 1500, travel: 1200, entertainment: 500 },
+  { month: 'Aug', food: 1050, shopping: 2100, travel: 2500, entertainment: 650 },
+  { month: 'Sep', food: 1100, shopping: 1800, travel: 900, entertainment: 550 },
+  { month: 'Oct', food: 1015, shopping: 1600, travel: 935, entertainment: 480 }
+];
+
+export const spendingOverTimeData = [
+  { day: '1', amount: 850, cumulative: 850, budget: 15000 },
+  { day: '5', amount: 1200, cumulative: 6050, budget: 15000 },
+  { day: '8', amount: 950, cumulative: 3000, budget: 15000 },
+  { day: '12', amount: 1500, cumulative: 2500, budget: 15000 },
+  { day: '15', amount: 900, cumulative: 5400, budget: 15000 },
+  { day: '18', amount: 1350, cumulative: 1750, budget: 15000 },
+  { day: '20', amount: 1800, cumulative: 5550, budget: 15000 },
+  { day: '23', amount: 1250, cumulative: 9800, budget: 15000 },
+  { day: '26', amount: 950, cumulative: 10750, budget: 15000 },
+  { day: '28', amount: 1134, cumulative: 11884, budget: 15000 }
+];
+
+export const monthlyBudget = 15000;
+export const currentDayOfMonth = 20;
+export const spentTillDate = 8550;
+export const budgetUsedPercentage = 57;
+export const dailyAverageIncrease = 12;
+
+export const insightsCards = {
+  spendingOverTimeInsight: {
+    title: 'Budget Alert: On Track',
+    description: `You spent 57% of your monthly budget by the 20th — your daily average increased by 12% compared to last month. Consider slowing down to stay within budget.`,
+    icon: '⚡',
+    trend: 'warning'
+  },
+  expenseInsight: {
+    title: 'Top Spending Category',
+    description: 'Utilities and Shopping dominate your expenses at 28% and 18% respectively. Consider reviewing subscription services and look for better deals on regular purchases.',
+    icon: '💡',
+    trend: 'neutral'
+  },
+  salaryInsight: {
+    title: 'Salary Growth Trend',
+    description: 'Your salary has grown by 18.4% over the last 6 months, showing consistent career progression. This positive trend reflects your professional development.',
+    icon: '📈',
+    trend: 'positive'
+  },
+  healthInsight: {
+    title: 'Financial Health',
+    description: 'Your score of 78/100 indicates good financial health. You maintain a healthy income-to-expense ratio and consistent savings. Focus on emergency fund growth.',
+    icon: '❤️',
+    trend: 'positive'
+  },
+  categoryTrendInsight: {
+    title: 'Spending Pattern Analysis',
+    description: 'Travel and Shopping expenses peaked in August at ₹2,500 and ₹2,100 respectively — possibly due to festive season or vacations. Your spending has normalized in recent months.',
+    icon: '📊',
+    trend: 'neutral'
+  }
+};

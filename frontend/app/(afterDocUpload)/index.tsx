@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   ScrollView,
   Alert,
@@ -17,6 +16,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Toast } from 'toastify-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width, height } = Dimensions.get('window');
@@ -46,11 +48,9 @@ const categories = {
   ]
 };
 
-const AfterImageClickedPage = () => {
+const AfterDocUploadPage = () => {
   const params = useLocalSearchParams();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [brightness, setBrightness] = useState(1);
-  const [contrast, setContrast] = useState(1);
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [extractedTransactions, setExtractedTransactions] = useState<any[]>([]);
   const [showTransactions, setShowTransactions] = useState(false);
@@ -70,11 +70,18 @@ const AfterImageClickedPage = () => {
     frequency: 'monthly' as 'weekly' | 'monthly' | 'custom'
   });
 
-  const imageUri = params.imageUri as string;
+  const docUri = params.docUri as string;
   const fileName = params.fileName as string;
   const fileSize = params.fileSize as string;
-  const imageWidth = params.width as string;
-  const imageHeight = params.height as string;
+  const mimeType = params.mimeType as string;
+
+  // Format file size
+  const formatFileSize = (bytes: string) => {
+    const size = parseInt(bytes);
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  };
 
   const EditingTool = ({ 
     icon, 
@@ -186,22 +193,38 @@ const AfterImageClickedPage = () => {
     </View>
   );
 
-  const handleScanImage = () => {
+  const handlePreviewDocument = async () => {
+    try {
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      
+      if (isAvailable) {
+        await Sharing.shareAsync(docUri);
+      } else {
+        Toast.info('📄 Document preview not available on this device', 'top');
+      }
+    } catch (error) {
+      console.log('Document Preview Error: ', error);
+      Toast.error('❌ Unable to preview document', 'top');
+    }
+  };
+
+  const handleScanDocument = () => {
     setIsProcessing(true);
 
-    // Simulate image processing with OCR/text recognition
+    // Simulate document processing with OCR/text recognition
     setTimeout(() => {
       setIsProcessing(false);
       
-      // Mock extracted transactions from receipt
+      // Mock extracted transactions from document
       const mockTransactions = [
         {
-          id: 'ext_1',
-          name: 'Grocery Store',
-          category: 'Groceries',
-          amount: -1250,
+          id: 'doc_1',
+          name: 'Restaurant Bill',
+          category: 'Food & Dining',
+          amount: -850,
           type: 'expense',
-          icon: '🛒',
+          icon: '🍽️',
           timestamp: new Date().toLocaleDateString('en-IN', { 
             day: '2-digit', 
             month: 'short', 
@@ -211,12 +234,12 @@ const AfterImageClickedPage = () => {
           })
         },
         {
-          id: 'ext_2',
-          name: 'Vegetables',
-          category: 'Groceries',
-          amount: -450,
+          id: 'doc_2',
+          name: 'Coffee',
+          category: 'Food & Dining',
+          amount: -150,
           type: 'expense',
-          icon: '🥬',
+          icon: '☕',
           timestamp: new Date().toLocaleDateString('en-IN', { 
             day: '2-digit', 
             month: 'short', 
@@ -226,12 +249,12 @@ const AfterImageClickedPage = () => {
           })
         },
         {
-          id: 'ext_3',
-          name: 'Dairy Products',
-          category: 'Groceries',
-          amount: -320,
+          id: 'doc_3',
+          name: 'Service Charge',
+          category: 'Others',
+          amount: -100,
           type: 'expense',
-          icon: '🥛',
+          icon: '💳',
           timestamp: new Date().toLocaleDateString('en-IN', { 
             day: '2-digit', 
             month: 'short', 
@@ -246,20 +269,51 @@ const AfterImageClickedPage = () => {
       setShowTransactions(true);
       
       // Show success toast
-      Toast.success('🎉 Receipt scanned successfully! Data extracted.', 'top');
+      Toast.success('🎉 Document scanned successfully! Data extracted.', 'top');
     }, 2500);
+  };
+
+  const handleRetake = async () => {
+    try {
+      // Pick a new document
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled === false && result.assets && result.assets[0]) {
+        const doc = result.assets[0];
+        
+        // Show success toast
+        Toast.success('📄 Document uploaded successfully!', 'top');
+        
+        // Update the route with new document data
+        router.replace({
+          pathname: '/(afterDocUpload)' as any,
+          params: {
+            docUri: doc.uri,
+            fileName: doc.name,
+            fileSize: doc.size?.toString() || '0',
+            mimeType: doc.mimeType || 'application/pdf'
+          }
+        });
+      }
+    } catch (error: any) {
+      console.log('Document Picker Error: ', error);
+      Toast.error('❌ Unable to pick document. Please try again.', 'top');
+    }
   };
 
   const handleBack = () => {
     Alert.alert(
-      'Discard Photo?',
-      'Are you sure you want to go back? The captured photo will be lost.',
+      'Discard Document?',
+      'Are you sure you want to go back? The uploaded document will be lost.',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Discard', 
           onPress: () => {
-            Toast.warn('📷 Photo discarded', 'top');
+            Toast.warn('📄 Document discarded', 'top');
             router.back();
           }, 
           style: 'destructive' 
@@ -332,11 +386,11 @@ const AfterImageClickedPage = () => {
     return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   };
 
-  if (!imageUri) {
+  if (!docUri) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
         <View className="flex-1 justify-center items-center">
-          <Text className="text-gray-500 text-lg">No image to display</Text>
+          <Text className="text-gray-500 text-lg">No document to display</Text>
           <TouchableOpacity 
             onPress={() => router.back()}
             className="mt-4 bg-blue-500 px-6 py-3 rounded-xl"
@@ -364,232 +418,166 @@ const AfterImageClickedPage = () => {
               >
                 <Ionicons name="arrow-back" size={20} color="#374151" />
               </TouchableOpacity>
-              <Text className="text-gray-800 text-xl font-bold ml-4">Edit Photo</Text>
+              <Text className="text-gray-800 text-xl font-bold ml-4">Edit Document</Text>
             </View>
           </View>
         </View>
 
-      <ScrollView 
-        className="flex-1" 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
-      >
-        {/* Image Display Section */}
-        <View className="px-4 mt-4">
-          <View className="bg-white rounded-3xl p-3 shadow-lg">
-            <View className="items-center">
-              <View 
-                className="rounded-2xl overflow-hidden shadow-lg"
-                style={{
-                  width: width - 40,
-                  height: (width - 40) * 1.3,
-                  maxHeight: height * 0.6,
-                }}
-              >
-                <Image
-                  source={{ uri: imageUri }}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    opacity: brightness,
-                  }}
-                  resizeMode="cover"
-                />
-                {/* Overlay for better visual feedback */}
-                <View className="absolute inset-0 border-2 border-blue-200 rounded-2xl pointer-events-none" />
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Tips Section */}
-        <View className="px-6 mt-6">
-          <View className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-            <View className="flex-row items-center mb-2">
-              <Ionicons name="bulb-outline" size={20} color="#3B82F6" />
-              <Text className="text-blue-700 font-semibold ml-2">Pro Tips</Text>
-            </View>
-            <Text className="text-blue-600 text-sm leading-relaxed">
-              • Ensure the receipt is well-lit and flat{'\n'}
-              • Include all text and amounts in the frame{'\n'}
-              • Use editing tools to enhance clarity before scanning
-            </Text>
-          </View>
-        </View>
-
-        {/* Editing Tools */}
-        <View className="px-6 mt-6">
-          <Text className="text-gray-800 text-lg font-bold mb-4">Editing Tools</Text>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            className="mb-6"
-          >
-            <EditingTool
-              icon="crop"
-              label="Crop"
-              isSelected={selectedTool === 'crop'}
-              onPress={() => handleToolSelect('crop')}
-            />
-            <EditingTool
-              icon="color-filter"
-              label="Filter"
-              isSelected={selectedTool === 'filter'}
-              onPress={() => handleToolSelect('filter')}
-            />
-            <EditingTool
-              icon="sunny"
-              label="Brightness"
-              isSelected={selectedTool === 'brightness'}
-              onPress={() => handleToolSelect('brightness')}
-            />
-            <EditingTool
-              icon="contrast"
-              label="Contrast"
-              isSelected={selectedTool === 'contrast'}
-              onPress={() => handleToolSelect('contrast')}
-            />
-            <EditingTool
-              icon="refresh-outline"
-              label="Rotate"
-              isSelected={selectedTool === 'rotate'}
-              onPress={() => handleToolSelect('rotate')}
-            />
-            <EditingTool
-              icon="text"
-              label="Text"
-              isSelected={selectedTool === 'text'}
-              onPress={() => handleToolSelect('text')}
-            />
-          </ScrollView>
-
-          {/* Tool Options */}
-          {selectedTool && (
-            <View className="bg-white rounded-2xl p-4 shadow-lg mb-6">
-              <Text className="text-gray-700 font-semibold mb-3 capitalize">
-                {selectedTool} Options
-              </Text>
+        <ScrollView 
+          className="flex-1" 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
+        >
+          {/* Document Display Section */}
+          <View className="px-4 mt-4">
+            <View className="bg-white rounded-3xl p-4 shadow-lg">
               <View className="items-center">
-                <Text className="text-gray-500 text-sm">
-                  {selectedTool === 'crop' && 'Drag corners to crop the image'}
-                  {selectedTool === 'filter' && 'Apply filters to enhance your image'}
-                  {selectedTool === 'brightness' && 'Adjust image brightness'}
-                  {selectedTool === 'contrast' && 'Modify image contrast'}
-                  {selectedTool === 'rotate' && 'Rotate image by 90° increments'}
-                  {selectedTool === 'text' && 'Add text annotations to your image'}
-                </Text>
-                <TouchableOpacity 
-                  onPress={() => setSelectedTool(null)}
-                  className="mt-3 bg-blue-500 px-4 py-2 rounded-lg"
-                >
-                  <Text className="text-white text-sm font-medium">Apply</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Action Buttons */}
-        <View className="px-6 mt-4">
-          <View className="flex-row justify-between">
-            <TouchableOpacity 
-              onPress={() => router.back()}
-              disabled={isProcessing}
-              className={`flex-1 py-4 rounded-2xl items-center mr-3 ${
-                isProcessing ? 'bg-gray-100' : 'bg-gray-200'
-              }`}
-            >
-              <View className="flex-row items-center">
-                <Ionicons 
-                  name="camera-outline" 
-                  size={20} 
-                  color={isProcessing ? '#9CA3AF' : '#374151'} 
-                />
-                <Text className={`font-semibold text-lg ml-2 ${
-                  isProcessing ? 'text-gray-400' : 'text-gray-700'
-                }`}>
-                  Retake
-                </Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              onPress={handleScanImage}
-              disabled={isProcessing || showTransactions}
-              className={`flex-1 py-4 rounded-2xl items-center shadow-lg ${
-                isProcessing || showTransactions ? 'bg-blue-400' : 'bg-blue-500'
-              }`}
-            >
-              {isProcessing ? (
-                <View className="flex-row items-center">
-                  <ActivityIndicator
-                    size="small"
-                    color="white"
-                  />
-                  <Text className="text-white font-semibold text-lg ml-2">Scanning...</Text>
+                {/* Document Icon and Info */}
+                <View className="items-center mb-4">
+                  <View className="w-32 h-32 bg-blue-50 rounded-3xl items-center justify-center mb-4">
+                    <Ionicons 
+                      name={mimeType.includes('pdf') ? 'document-text' : 'image'} 
+                      size={64} 
+                      color="#3B82F6" 
+                    />
+                  </View>
+                  <Text className="text-gray-800 font-bold text-lg text-center mb-2" numberOfLines={2}>
+                    {fileName}
+                  </Text>
+                  <Text className="text-gray-500 text-sm mb-3">
+                    {formatFileSize(fileSize)}
+                  </Text>
+                  
+                  {/* Preview Button */}
+                  <TouchableOpacity 
+                    onPress={handlePreviewDocument}
+                    className="bg-blue-500 px-6 py-3 rounded-xl shadow-lg"
+                  >
+                    <View className="flex-row items-center">
+                      <Ionicons name="eye-outline" size={20} color="white" />
+                      <Text className="text-white font-semibold ml-2">Preview Document</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
-              ) : (
-                <View className="flex-row items-center">
-                  <Ionicons name="scan-outline" size={20} color="white" />
-                  <Text className="text-white font-semibold text-lg ml-2">Scan Receipt</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-          
-          {/* Progress indicator when processing */}
-          {isProcessing && (
-            <View className="mt-4 bg-white rounded-xl p-4 shadow-lg">
-              <View className="flex-row items-center justify-center">
-                <ActivityIndicator
-                  size="large"
-                  color="#3B82F6"
-                />
-              </View>
-              <Text className="text-center text-gray-600 text-sm mt-2">
-                Extracting text and analyzing receipt data...
-              </Text>
-            </View>
-          )}
-        </View>
 
-        {/* Extracted Transactions List */}
-        {showTransactions && extractedTransactions.length > 0 && (
-          <View className="px-6 mt-6">
-            <View className="bg-white rounded-2xl p-4 shadow-lg mb-4">
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-gray-800 text-lg font-bold">Extracted Transactions</Text>
-                <View className="bg-green-100 px-3 py-1 rounded-full">
-                  <Text className="text-green-700 text-xs font-semibold">
-                    {extractedTransactions.length} items
+                {/* Document Details */}
+                <View className="w-full bg-gray-50 rounded-2xl p-4 mt-2">
+                  <Text className="text-gray-600 text-sm mb-2">
+                    <Text className="font-semibold">File Type: </Text>
+                    {mimeType.includes('pdf') ? 'PDF Document' : 'Image Document'}
+                  </Text>
+                  <Text className="text-gray-600 text-sm">
+                    <Text className="font-semibold">Status: </Text>
+                    Ready to scan
                   </Text>
                 </View>
               </View>
-              <Text className="text-gray-500 text-sm">
-                Review the transactions below and click "Add to Transactions" to save them.
-              </Text>
             </View>
+          </View>
 
-            {/* Transaction Cards */}
-            {extractedTransactions.map((transaction) => (
-              <TransactionItem key={transaction.id} item={transaction} />
-            ))}
+        
 
-            {/* Add to Transactions Button */}
-            <TouchableOpacity 
-              onPress={handleAddToTransactions}
-              className="bg-green-500 py-4 rounded-2xl items-center shadow-lg mt-4 mb-6"
-            >
-              <View className="flex-row items-center">
-                <Ionicons name="checkmark-circle-outline" size={24} color="white" />
-                <Text className="text-white font-bold text-lg ml-2">
-                  Add {extractedTransactions.length} Transaction{extractedTransactions.length > 1 ? 's' : ''} to Main List
+          {/* Action Buttons */}
+          <View className="px-6 mt-4">
+            <View className="flex-row justify-between">
+              <TouchableOpacity 
+                onPress={handleRetake}
+                disabled={isProcessing}
+                className={`flex-1 py-4 rounded-2xl items-center mr-3 ${
+                  isProcessing ? 'bg-gray-100' : 'bg-gray-200'
+                }`}
+              >
+                <View className="flex-row items-center">
+                  <Ionicons 
+                    name="cloud-upload-outline" 
+                    size={20} 
+                    color={isProcessing ? '#9CA3AF' : '#374151'} 
+                  />
+                  <Text className={`font-semibold text-lg ml-2 ${
+                    isProcessing ? 'text-gray-400' : 'text-gray-700'
+                  }`}>
+                    Retake
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={handleScanDocument}
+                disabled={isProcessing || showTransactions}
+                className={`flex-1 py-4 rounded-2xl items-center shadow-lg ${
+                  isProcessing || showTransactions ? 'bg-blue-400' : 'bg-blue-500'
+                }`}
+              >
+                {isProcessing ? (
+                  <View className="flex-row items-center">
+                    <ActivityIndicator
+                      size="small"
+                      color="white"
+                    />
+                    <Text className="text-white font-semibold text-lg ml-2">Scanning...</Text>
+                  </View>
+                ) : (
+                  <View className="flex-row items-center">
+                    <Ionicons name="scan-outline" size={20} color="white" />
+                    <Text className="text-white font-semibold text-lg ml-2">Scan Doc</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+            
+            {/* Progress indicator when processing */}
+            {isProcessing && (
+              <View className="mt-4 bg-white rounded-xl p-4 shadow-lg">
+                <View className="flex-row items-center justify-center">
+                  <ActivityIndicator
+                    size="large"
+                    color="#3B82F6"
+                  />
+                </View>
+                <Text className="text-center text-gray-600 text-sm mt-2">
+                  Extracting text and analyzing document data...
                 </Text>
               </View>
-            </TouchableOpacity>
+            )}
           </View>
-        )}
-      </ScrollView>
+
+          {/* Extracted Transactions List */}
+          {showTransactions && extractedTransactions.length > 0 && (
+            <View className="px-6 mt-6">
+              <View className="bg-white rounded-2xl p-4 shadow-lg mb-4">
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text className="text-gray-800 text-lg font-bold">Extracted Transactions</Text>
+                  <View className="bg-green-100 px-3 py-1 rounded-full">
+                    <Text className="text-green-700 text-xs font-semibold">
+                      {extractedTransactions.length} items
+                    </Text>
+                  </View>
+                </View>
+                <Text className="text-gray-500 text-sm">
+                  Review the transactions below and click "Add to Transactions" to save them.
+                </Text>
+              </View>
+
+              {/* Transaction Cards */}
+              {extractedTransactions.map((transaction) => (
+                <TransactionItem key={transaction.id} item={transaction} />
+              ))}
+
+              {/* Add to Transactions Button */}
+              <TouchableOpacity 
+                onPress={handleAddToTransactions}
+                className="bg-green-500 py-4 rounded-2xl items-center shadow-lg mt-4 mb-6"
+              >
+                <View className="flex-row items-center">
+                  <Ionicons name="checkmark-circle-outline" size={24} color="white" />
+                  <Text className="text-white font-bold text-lg ml-2">
+                    Add {extractedTransactions.length} Transaction{extractedTransactions.length > 1 ? 's' : ''} to Main List
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
 
       {/* Edit Transaction Modal */}
       <Modal
@@ -808,4 +796,4 @@ const AfterImageClickedPage = () => {
   );
 };
 
-export default AfterImageClickedPage;
+export default AfterDocUploadPage;

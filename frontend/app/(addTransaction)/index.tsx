@@ -3,6 +3,8 @@ import React, { useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
+import { Toast } from 'toastify-react-native'
+import { router } from 'expo-router'
 
 // Category options with icons
 const categories = {
@@ -77,6 +79,12 @@ const AddTransactionPage = () => {
       isRecurring,
       frequency: isRecurring ? frequency : null
     })
+    
+    // Show success toast
+    Toast.success('✅ Transaction added successfully!', 'top')
+    
+    // Navigate to Transactions tab
+    router.push('/(tabs)/Transactions')
   }
 
   const formatDate = (date: Date) => {
@@ -93,7 +101,7 @@ const AddTransactionPage = () => {
       className="flex-1"
     >
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="px-6 py-8">
+        <View className="px-6 py-8 mt-7">
           {/* Header */}
           <View className="mb-6">
             <Text className="text-3xl font-bold text-gray-800 mb-2">
