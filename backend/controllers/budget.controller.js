@@ -573,7 +573,3 @@ async function updateBudgetSpending(budget) {
     throw error;
   }
 }
-
-module.exports = {
-  updateBudgetSpending
-};
