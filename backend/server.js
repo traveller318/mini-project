@@ -6,6 +6,24 @@ require('dotenv').config();
 
 const { connectDatabase, setupConnectionEvents, getConnectionStatus } = require('./config/database');
 
+// Import Custom Middleware
+const {
+  // Security Middleware
+  addSecurityHeaders,
+  sanitizeInput,
+  preventParameterPollution,
+  detectSuspiciousActivity,
+  
+  // Logging Middleware
+  requestLogger,
+  errorLogger,
+  performanceLogger,
+  
+  // Error Handling Middleware
+  notFound,
+  errorHandler
+} = require('./middleware');
+
 // Initialize Express App
 const app = express();
 
@@ -13,8 +31,9 @@ const app = express();
 // MIDDLEWARE SETUP
 // ============================================
 
-// Security Headers
+// Security Headers (Helmet + Custom)
 app.use(helmet());
+app.use(addSecurityHeaders);
 
 // CORS Configuration
 const corsOptions = {
@@ -30,12 +49,16 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// HTTP Request Logger
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
-}
+// Custom Request Logger (Replaces Morgan for better control)
+app.use(requestLogger);
+
+// Performance Monitoring (Log requests slower than 3 seconds)
+app.use(performanceLogger(3000));
+
+// Security Middleware
+app.use(sanitizeInput);
+app.use(preventParameterPollution);
+app.use(detectSuspiciousActivity);
 
 // Static Files
 app.use('/uploads', express.static('uploads'));
@@ -84,71 +107,13 @@ app.get('/', (req, res) => {
 // ============================================
 
 // 404 Handler - Route Not Found
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-    path: req.originalUrl,
-    method: req.method
-  });
-});
+app.use(notFound);
+
+// Error Logger
+app.use(errorLogger);
 
 // Global Error Handler
-app.use((err, req, res, next) => {
-  console.error('❌ Error:', err);
-
-  // Mongoose Validation Error
-  if (err.name === 'ValidationError') {
-    const errors = Object.values(err.errors).map(e => e.message);
-    return res.status(400).json({
-      success: false,
-      message: 'Validation Error',
-      errors
-    });
-  }
-
-  // Mongoose Duplicate Key Error
-  if (err.code === 11000) {
-    const field = Object.keys(err.keyPattern)[0];
-    return res.status(400).json({
-      success: false,
-      message: `${field} already exists`,
-      field
-    });
-  }
-
-  // Mongoose Cast Error
-  if (err.name === 'CastError') {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid ID format',
-      field: err.path
-    });
-  }
-
-  // JWT Error
-  if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid token'
-    });
-  }
-
-  // JWT Expired Error
-  if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token expired'
-    });
-  }
-
-  // Default Error
-  res.status(err.statusCode || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
-});
+app.use(errorHandler);
 
 // ============================================
 // SERVER STARTUP
@@ -173,6 +138,13 @@ const startServer = async () => {
       console.log(`🔗 Local: http://localhost:${PORT}`);
       console.log(`⏰ Started at: ${new Date().toLocaleString()}`);
       console.log('🚀 =============================================');
+      console.log('');
+      console.log('✅ Middleware Status:');
+      console.log('   🔒 Security: Enabled');
+      console.log('   📝 Request Logging: Enabled');
+      console.log('   ⚡ Performance Monitoring: Enabled (3s threshold)');
+      console.log('   🛡️  Input Sanitization: Enabled');
+      console.log('   ❌ Error Handling: Enabled');
       console.log('');
     });
 
