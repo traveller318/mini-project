@@ -5,6 +5,7 @@ const morgan = require('morgan');
 require('dotenv').config();
 
 const { connectDatabase, setupConnectionEvents, getConnectionStatus } = require('./config/database');
+const { initializeScheduledTasks } = require('./utils/scheduledTasks');
 
 // Import Custom Middleware
 const {
@@ -96,10 +97,12 @@ app.use('/api/v1/auth', require('./routes/auth.routes'));
 app.use('/api/v1/users', require('./routes/user.routes'));
 app.use('/api/v1/transactions', require('./routes/transaction.routes'));
 app.use('/api/v1/goals', require('./routes/goal.routes'));
+app.use('/api/v1/budgets', require('./routes/budget.routes'));
 app.use('/api/v1/subscriptions', require('./routes/subscription.routes'));
 app.use('/api/v1/insights', require('./routes/insights.routes'));
 app.use('/api/v1/investments', require('./routes/investment.routes'));
 app.use('/api/v1/voice', require('./routes/voice.routes'));
+app.use('/api/v1/notifications', require('./routes/notification.routes'));
 
 // ============================================
 // ERROR HANDLING
@@ -127,6 +130,9 @@ const startServer = async () => {
 
     // Connect to MongoDB
     await connectDatabase();
+
+    // Initialize scheduled tasks for notifications and auto-renewal
+    initializeScheduledTasks();
 
     // Start Express Server
     app.listen(PORT, () => {

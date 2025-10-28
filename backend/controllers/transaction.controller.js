@@ -163,6 +163,64 @@ exports.createTransaction = async (req, res) => {
     // Update user's income/expense totals
     await updateUserFinancials(userId);
 
+    // Check budget alerts if this is an expense
+    if (type.toLowerCase() === 'expense') {
+      try {
+        const Budget = require('../models/Budget');
+        const Notification = require('../models/Notification');
+        
+        // Find active budgets for this category
+        const budgets = await Budget.find({
+          userId,
+          category,
+          isDeleted: false,
+          status: 'active',
+          'alerts.enabled': true,
+          startDate: { $lte: transaction.date },
+          endDate: { $gte: transaction.date }
+        });
+
+        // Check alerts for each budget
+        for (const budget of budgets) {
+          // Recalculate budget spending
+          const { updateBudgetSpending } = require('./budget.controller');
+          await updateBudgetSpending(budget);
+
+          const percentage = budget.limit > 0 ? (budget.spent / budget.limit) * 100 : 0;
+
+          // Check each threshold
+          for (const threshold of budget.alerts.thresholds) {
+            if (percentage >= threshold.percentage && !threshold.triggered) {
+              // Create notification
+              await Notification.create({
+                userId,
+                type: percentage >= 100 ? 'budget_exceeded' : 'budget_alert',
+                title: `Budget Alert: ${budget.category}`,
+                message: `You've spent ${Math.round(percentage)}% of your ${budget.category} budget (₹${budget.spent.toLocaleString()} / ₹${budget.limit.toLocaleString()})`,
+                icon: 'warning-outline',
+                color: percentage >= 100 ? '#EF4444' : percentage >= 90 ? '#F59E0B' : '#3B82F6',
+                priority: percentage >= 100 ? 'urgent' : percentage >= 90 ? 'high' : 'medium',
+                relatedDocument: {
+                  documentType: 'Budget',
+                  documentId: budget._id
+                }
+              });
+
+              // Mark threshold as triggered
+              threshold.triggered = true;
+              threshold.triggeredAt = new Date();
+            }
+          }
+
+          budget.alerts.lastAlertSent = new Date();
+          await budget.save();
+        }
+      } catch (budgetError) {
+        console.error('Budget Alert Error:', budgetError);
+        // Don't fail the transaction if budget check fails
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: 'Transaction created successfully',
