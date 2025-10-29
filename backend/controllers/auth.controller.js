@@ -151,8 +151,9 @@ exports.signin = async (req, res) => {
 // ============================================
 exports.getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password');
-    
+    // req.user is already a user document
+    const user = await User.findById(req.user._id).select('-password');
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -162,9 +163,7 @@ exports.getCurrentUser = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: {
-        user
-      }
+      data: { user }
     });
 
   } catch (error) {
@@ -176,6 +175,7 @@ exports.getCurrentUser = async (req, res) => {
     });
   }
 };
+
 
 // ============================================
 // LOGOUT USER

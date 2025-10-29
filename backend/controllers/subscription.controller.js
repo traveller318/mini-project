@@ -5,7 +5,7 @@ const Subscription = require('../models/Subscription');
 // ============================================
 exports.getAllSubscriptions = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { status, category } = req.query;
 
     const query = { userId, isDeleted: false };
@@ -43,7 +43,7 @@ exports.getAllSubscriptions = async (req, res) => {
 // ============================================
 exports.getUpcomingSubscriptions = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { days = 30 } = req.query;
 
     const today = new Date();
@@ -87,7 +87,7 @@ exports.getUpcomingSubscriptions = async (req, res) => {
 // ============================================
 exports.getSubscription = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const subscription = await Subscription.findOne({ _id: id, userId, isDeleted: false });
@@ -119,7 +119,7 @@ exports.getSubscription = async (req, res) => {
 // ============================================
 exports.createSubscription = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const {
       name,
       description,
@@ -184,7 +184,7 @@ exports.createSubscription = async (req, res) => {
 // ============================================
 exports.updateSubscription = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
     const updateData = req.body;
 
@@ -222,7 +222,7 @@ exports.updateSubscription = async (req, res) => {
 // ============================================
 exports.deleteSubscription = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const subscription = await Subscription.findOneAndUpdate(
@@ -258,7 +258,7 @@ exports.deleteSubscription = async (req, res) => {
 // ============================================
 exports.recordPayment = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
     const { amount, paidOn, status, transactionId, note } = req.body;
 
@@ -318,7 +318,7 @@ exports.recordPayment = async (req, res) => {
 // ============================================
 exports.getCalendarData = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { month, year } = req.query;
 
     const startDate = new Date(year, month - 1, 1);

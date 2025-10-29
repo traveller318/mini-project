@@ -6,7 +6,7 @@ const User = require('../models/User');
 // ============================================
 exports.getAllTransactions = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { page = 1, limit = 50, type, category, startDate, endDate } = req.query;
 
     const query = { userId, isDeleted: false };
@@ -63,7 +63,7 @@ exports.getAllTransactions = async (req, res) => {
 // ============================================
 exports.getTransactionsByCategory = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     const transactions = await Transaction.find({ userId, isDeleted: false })
       .sort({ date: -1 });
@@ -115,7 +115,7 @@ exports.getTransactionsByCategory = async (req, res) => {
 // ============================================
 exports.createTransaction = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const {
       name,
       description,
@@ -242,7 +242,7 @@ exports.createTransaction = async (req, res) => {
 // ============================================
 exports.updateTransaction = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
     const updateData = req.body;
 
@@ -283,7 +283,7 @@ exports.updateTransaction = async (req, res) => {
 // ============================================
 exports.deleteTransaction = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const transaction = await Transaction.findOneAndUpdate(
@@ -322,7 +322,7 @@ exports.deleteTransaction = async (req, res) => {
 // ============================================
 exports.scanReceipt = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     if (!req.file) {
       return res.status(400).json({

@@ -8,7 +8,7 @@ const Notification = require('../models/Notification');
 // ============================================
 exports.createBudget = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const {
       name,
       description,
@@ -84,7 +84,7 @@ exports.createBudget = async (req, res) => {
 // ============================================
 exports.getAllBudgets = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { status, period, category } = req.query;
 
     const query = {
@@ -126,7 +126,7 @@ exports.getAllBudgets = async (req, res) => {
 // ============================================
 exports.getBudgetById = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const budget = await Budget.findOne({ _id: id, userId, isDeleted: false });
@@ -161,7 +161,7 @@ exports.getBudgetById = async (req, res) => {
 // ============================================
 exports.getBudgetsByCategory = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { category } = req.params;
 
     const budgets = await Budget.find({
@@ -199,7 +199,7 @@ exports.getBudgetsByCategory = async (req, res) => {
 // ============================================
 exports.updateBudget = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
     const updateData = req.body;
 
@@ -244,7 +244,7 @@ exports.updateBudget = async (req, res) => {
 // ============================================
 exports.deleteBudget = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const budget = await Budget.findOneAndUpdate(
@@ -285,7 +285,7 @@ exports.deleteBudget = async (req, res) => {
 // ============================================
 exports.getBudgetOverview = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { period = 'monthly' } = req.query;
 
     const budgets = await Budget.find({
@@ -341,7 +341,7 @@ exports.getBudgetOverview = async (req, res) => {
 // ============================================
 exports.checkBudgetAlerts = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     const budgets = await Budget.find({
       userId,
@@ -419,7 +419,7 @@ exports.checkBudgetAlerts = async (req, res) => {
 // ============================================
 exports.renewBudgets = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     const now = new Date();
     const budgetsToRenew = await Budget.find({

@@ -6,7 +6,7 @@ const User = require('../models/User');
 // ============================================
 exports.getExpenseDistribution = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { startDate, endDate } = req.query;
 
     const query = {
@@ -65,7 +65,7 @@ exports.getExpenseDistribution = async (req, res) => {
 // ============================================
 exports.getIncomeProgression = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { months = 6 } = req.query;
 
     const progressionData = [];
@@ -110,7 +110,7 @@ exports.getIncomeProgression = async (req, res) => {
 // ============================================
 exports.getSpendingOverTime = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { month, year } = req.query;
 
     const currentDate = new Date();
@@ -167,7 +167,7 @@ exports.getSpendingOverTime = async (req, res) => {
 // ============================================
 exports.getCategoryTrends = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { months = 6, categories } = req.query;
 
     const categoryList = categories 
@@ -221,7 +221,7 @@ exports.getCategoryTrends = async (req, res) => {
 // ============================================
 exports.getFinancialHealthScore = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -287,7 +287,7 @@ exports.getFinancialHealthScore = async (req, res) => {
 // ============================================
 exports.getInsights = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const user = await User.findById(userId);
 
     if (!user) {

@@ -7,7 +7,7 @@ const Transaction = require('../models/Transaction');
 // ============================================
 exports.saveVoiceRecording = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     if (!req.file) {
       return res.status(400).json({
@@ -64,7 +64,7 @@ exports.saveVoiceRecording = async (req, res) => {
 // ============================================
 exports.getVoiceResult = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const voiceInteraction = await VoiceInteraction.findOne({ _id: id, userId });
@@ -96,7 +96,7 @@ exports.getVoiceResult = async (req, res) => {
 // ============================================
 exports.processVoiceQuery = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { query } = req.body;
 
     if (!query) {
@@ -140,7 +140,7 @@ exports.processVoiceQuery = async (req, res) => {
 // ============================================
 exports.getVoiceHistory = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { page = 1, limit = 20 } = req.query;
 
     const interactions = await VoiceInteraction.find({ userId })

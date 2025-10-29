@@ -6,7 +6,7 @@ const User = require('../models/User');
 // ============================================
 exports.createNotification = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const {
       type,
       title,
@@ -68,7 +68,7 @@ exports.createNotification = async (req, res) => {
 // ============================================
 exports.getAllNotifications = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { 
       page = 1, 
       limit = 20, 
@@ -133,7 +133,7 @@ exports.getAllNotifications = async (req, res) => {
 // ============================================
 exports.getNotificationById = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const notification = await Notification.findOne({
@@ -169,7 +169,7 @@ exports.getNotificationById = async (req, res) => {
 // ============================================
 exports.getUnreadCount = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     const count = await Notification.countDocuments({
       userId,
@@ -201,7 +201,7 @@ exports.getUnreadCount = async (req, res) => {
 // ============================================
 exports.markAsRead = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const notification = await Notification.findOneAndUpdate(
@@ -241,7 +241,7 @@ exports.markAsRead = async (req, res) => {
 // ============================================
 exports.markAllAsRead = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     const result = await Notification.updateMany(
       {
@@ -278,7 +278,7 @@ exports.markAllAsRead = async (req, res) => {
 // ============================================
 exports.deleteNotification = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const notification = await Notification.findOneAndUpdate(
@@ -318,7 +318,7 @@ exports.deleteNotification = async (req, res) => {
 // ============================================
 exports.deleteAllNotifications = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { onlyRead } = req.query;
 
     const query = {
@@ -362,7 +362,7 @@ exports.deleteAllNotifications = async (req, res) => {
 // ============================================
 exports.getNotificationsByType = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { type } = req.params;
     const { page = 1, limit = 20 } = req.query;
 
@@ -411,7 +411,7 @@ exports.getNotificationsByType = async (req, res) => {
 // ============================================
 exports.getNotificationSummary = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     const now = new Date();
 

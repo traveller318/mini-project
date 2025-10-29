@@ -8,7 +8,7 @@ const Subscription = require('../models/Subscription');
 // ============================================
 exports.getDashboard = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     // Get user data
     const user = await User.findById(userId).select('-password');
@@ -103,7 +103,7 @@ exports.getDashboard = async (req, res) => {
 // ============================================
 exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password');
+    const user = await User.findById(req.user._id).select('-password');
     
     if (!user) {
       return res.status(404).json({
@@ -132,7 +132,7 @@ exports.getProfile = async (req, res) => {
 // ============================================
 exports.updateProfile = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { name, phoneNumber, dateOfBirth, riskProfile, preferences } = req.body;
 
     const updateData = {};
@@ -176,7 +176,7 @@ exports.updateProfile = async (req, res) => {
 // ============================================
 exports.updateProfileImage = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     
     if (!req.file) {
       return res.status(400).json({
@@ -216,7 +216,7 @@ exports.updateProfileImage = async (req, res) => {
 // ============================================
 exports.getFinancialSummary = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     
     // Get current month start and end dates
     const now = new Date();
@@ -274,7 +274,7 @@ exports.getFinancialSummary = async (req, res) => {
 // ============================================
 exports.updateRiskProfile = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { riskProfile } = req.body;
 
     if (!['Low', 'Moderate', 'High'].includes(riskProfile)) {

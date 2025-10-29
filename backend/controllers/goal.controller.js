@@ -5,7 +5,7 @@ const SavingGoal = require('../models/SavingGoal');
 // ============================================
 exports.getAllGoals = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { status } = req.query;
 
     const query = { userId, isDeleted: false };
@@ -34,7 +34,7 @@ exports.getAllGoals = async (req, res) => {
 // ============================================
 exports.getGoal = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const goal = await SavingGoal.findOne({ _id: id, userId, isDeleted: false });
@@ -66,7 +66,7 @@ exports.getGoal = async (req, res) => {
 // ============================================
 exports.createGoal = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const {
       name,
       description,
@@ -123,7 +123,7 @@ exports.createGoal = async (req, res) => {
 // ============================================
 exports.updateGoal = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
     const updateData = req.body;
 
@@ -161,7 +161,7 @@ exports.updateGoal = async (req, res) => {
 // ============================================
 exports.deleteGoal = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     const goal = await SavingGoal.findOneAndUpdate(
@@ -197,7 +197,7 @@ exports.deleteGoal = async (req, res) => {
 // ============================================
 exports.contributeToGoal = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
     const { amount, date, note, source } = req.body;
 
@@ -263,7 +263,7 @@ exports.contributeToGoal = async (req, res) => {
 // ============================================
 exports.setMainGoal = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { id } = req.params;
 
     // Unset all main goals first

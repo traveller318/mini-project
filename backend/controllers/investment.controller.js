@@ -123,7 +123,7 @@ const investments = {
 // ============================================
 exports.getRecommendations = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -170,7 +170,7 @@ exports.getRecommendations = async (req, res) => {
 // ============================================
 exports.getPersonalizedInsights = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -287,7 +287,7 @@ function generateInsights(balance, riskProfile, user) {
 // ============================================
 exports.updateRiskProfile = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const { riskProfile } = req.body;
 
     if (!['Low', 'Moderate', 'High'].includes(riskProfile)) {
