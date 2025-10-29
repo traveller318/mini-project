@@ -63,7 +63,7 @@ const preventParameterPollution = (req, res, next) => {
 const detectSuspiciousActivity = (req, res, next) => {
   const suspiciousPatterns = [
     /(\$where|\$ne|\$gt|\$lt)/i, // MongoDB injection
-    /(union|select|insert|update|delete|drop|create|alter)/i, // SQL injection
+    /\b(union\s+select|insert\s+into|update\s+set|delete\s+from|drop\s+table|create\s+table|alter\s+table)\b/i, // SQL injection (with word boundaries)
     /(<script|javascript:|onerror=|onload=)/i, // XSS
     /(\.\.\/|\.\.\\)/g, // Path traversal
   ];
