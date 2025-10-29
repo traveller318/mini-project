@@ -16,7 +16,11 @@ router.post('/', transactionController.createTransaction);
 router.put('/:id', transactionController.updateTransaction);
 router.delete('/:id', transactionController.deleteTransaction);
 
-// Scan receipt
+// OCR + AI Receipt Scanning
 router.post('/scan-receipt', uploadReceipt, transactionController.scanReceipt);
+router.post('/save-extracted', transactionController.saveExtractedTransactions);
+
+// AI Category Suggestion
+router.post('/suggest-category', transactionController.suggestCategory);
 
 module.exports = router;

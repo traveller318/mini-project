@@ -318,7 +318,7 @@ exports.deleteTransaction = async (req, res) => {
 };
 
 // ============================================
-// SCAN RECEIPT/DOCUMENT
+// SCAN RECEIPT/DOCUMENT WITH OCR + AI
 // ============================================
 exports.scanReceipt = async (req, res) => {
   try {
@@ -332,42 +332,228 @@ exports.scanReceipt = async (req, res) => {
     }
 
     const receiptPath = `/uploads/receipts/${req.file.filename}`;
+    const fullPath = `uploads/receipts/${req.file.filename}`;
 
-    // TODO: Implement OCR/text recognition here
-    // For now, return mock extracted data
-    const extractedTransactions = [
-      {
-        name: 'Restaurant Bill',
-        category: 'Food & Drink',
-        amount: 850,
-        type: 'expense',
-        icon: '🍽️',
-        description: 'Extracted from receipt'
-      },
-      {
-        name: 'Coffee',
-        category: 'Food & Drink',
-        amount: 150,
-        type: 'expense',
-        icon: '☕',
-        description: 'Extracted from receipt'
-      }
-    ];
+    console.log('📸 Receipt uploaded:', req.file.filename);
 
+    // Import OCR and Gemini services
+    const { extractTextFromImage, validateOCRResult } = require('../utils/ocrService');
+    const { parseReceiptWithGemini, validateTransactionData } = require('../utils/geminiService');
+
+    // Step 1: Extract text from image using OCR
+    console.log('🔍 Step 1: Extracting text with OCR...');
+    const ocrResult = await extractTextFromImage(fullPath);
+
+    // Validate OCR result
+    const ocrValidation = validateOCRResult(ocrResult);
+    if (!ocrValidation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to extract text from image. Please ensure the image is clear and readable.',
+        warnings: ocrValidation.warnings
+      });
+    }
+
+    // Step 2: Parse extracted text with Gemini AI
+    console.log('🤖 Step 2: Parsing with Gemini AI...');
+    const parsedData = await parseReceiptWithGemini(ocrResult.text);
+
+    // Handle parsing failure with fallback
+    if (!parsedData.success && parsedData.fallbackTransaction) {
+      return res.status(200).json({
+        success: true,
+        message: 'Receipt scanned with limited accuracy. Please review the transaction details.',
+        data: {
+          receiptImage: receiptPath,
+          merchantName: 'Unknown Merchant',
+          totalAmount: parsedData.fallbackTransaction.amount,
+          extractedTransactions: [parsedData.fallbackTransaction],
+          ocrConfidence: ocrResult.confidence,
+          parseConfidence: 'low',
+          warnings: ['AI parsing failed. Using basic extraction.', ...ocrValidation.warnings]
+        }
+      });
+    }
+
+    // Validate transaction data
+    const dataValidation = validateTransactionData(parsedData);
+
+    // Step 3: Return parsed transaction data
     res.status(200).json({
       success: true,
       message: 'Receipt scanned successfully',
       data: {
         receiptImage: receiptPath,
-        extractedTransactions
+        merchantName: parsedData.merchantName,
+        totalAmount: parsedData.totalAmount,
+        date: parsedData.date,
+        time: parsedData.time,
+        paymentMethod: parsedData.paymentMethod,
+        extractedTransactions: parsedData.transactions,
+        ocrConfidence: ocrResult.confidence,
+        parseConfidence: parsedData.confidence,
+        warnings: [...ocrValidation.warnings, ...dataValidation.warnings],
+        quality: dataValidation.quality,
+        metadata: {
+          wordCount: ocrResult.wordCount,
+          lineCount: ocrResult.lineCount,
+          processingTime: new Date().toISOString()
+        }
       }
     });
 
   } catch (error) {
-    console.error('Scan Receipt Error:', error);
+    console.error('❌ Scan Receipt Error:', error);
     res.status(500).json({
       success: false,
       message: 'Error scanning receipt',
+      error: error.message,
+      hint: 'Please ensure the image is clear and contains readable text'
+    });
+  }
+};
+
+// ============================================
+// SAVE EXTRACTED TRANSACTIONS (BULK)
+// ============================================
+exports.saveExtractedTransactions = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { transactions, receiptImage, merchantName } = req.body;
+
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No transactions provided'
+      });
+    }
+
+    // Validate and save each transaction
+    const savedTransactions = [];
+    const errors = [];
+
+    for (let i = 0; i < transactions.length; i++) {
+      const txn = transactions[i];
+      
+      try {
+        // Validate required fields
+        if (!txn.name || !txn.amount || !txn.type || !txn.category) {
+          errors.push(`Transaction ${i + 1}: Missing required fields`);
+          continue;
+        }
+
+        // Create transaction matching Transaction model
+        const transaction = await Transaction.create({
+          userId,
+          // Basic info
+          name: txn.name,
+          description: txn.description || txn.name || '',
+          amount: Math.abs(parseFloat(txn.amount)),
+          type: txn.type,
+          category: txn.category,
+          
+          // Display
+          icon: txn.icon || 'ellipsis-horizontal-outline',
+          color: txn.color || '#6B7280',
+          
+          // Date/Time
+          date: txn.date ? new Date(txn.date) : new Date(),
+          timestamp: txn.timestamp || new Date().toISOString(),
+          
+          // Payment
+          paymentMethod: txn.paymentMethod || 'other',
+          
+          // Additional
+          notes: txn.notes || '',
+          tags: txn.tags || [],
+          status: txn.status || 'completed',
+          
+          // Recurring (false for scanned receipts)
+          isRecurring: false,
+          recurringDetails: null,
+          
+          // Receipt info
+          receipt: {
+            hasReceipt: true,
+            imageUri: receiptImage || '',
+            fileName: txn.receipt?.fileName || '',
+            fileSize: txn.receipt?.fileSize || 0,
+            scannedData: {
+              merchantName: merchantName || txn.metadata?.merchantName || '',
+              totalAmount: txn.amount,
+              ocrConfidence: txn.receipt?.scannedData?.ocrConfidence || 0,
+              date: txn.date ? new Date(txn.date) : new Date()
+            }
+          },
+          
+          // Metadata
+          metadata: {
+            source: 'scanned',
+            ...txn.metadata
+          }
+        });
+
+        savedTransactions.push(transaction);
+
+      } catch (txnError) {
+        console.error(`Error saving transaction ${i + 1}:`, txnError.message);
+        errors.push(`Transaction ${i + 1}: ${txnError.message}`);
+      }
+    }
+
+    // Update user's income/expense totals
+    if (savedTransactions.length > 0) {
+      await updateUserFinancials(userId);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully saved ${savedTransactions.length} transaction(s)`,
+      data: {
+        savedTransactions,
+        totalSaved: savedTransactions.length,
+        totalFailed: errors.length,
+        errors: errors.length > 0 ? errors : undefined
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Save Extracted Transactions Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error saving transactions',
+      error: error.message
+    });
+  }
+};
+
+// ============================================
+// SUGGEST CATEGORY USING AI
+// ============================================
+exports.suggestCategory = async (req, res) => {
+  try {
+    const { description, amount } = req.body;
+
+    if (!description) {
+      return res.status(400).json({
+        success: false,
+        message: 'Description is required'
+      });
+    }
+
+    const { suggestCategory } = require('../utils/geminiService');
+    const suggestion = await suggestCategory(description, amount || 0);
+
+    res.status(200).json({
+      success: true,
+      data: suggestion
+    });
+
+  } catch (error) {
+    console.error('❌ Suggest Category Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error suggesting category',
       error: error.message
     });
   }

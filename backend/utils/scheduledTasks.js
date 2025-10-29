@@ -66,6 +66,7 @@ const checkOverdueSubscriptions = async () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Find active subscriptions that are now overdue
     const overdueSubscriptions = await Subscription.find({
       isDeleted: false,
       status: 'active',
@@ -81,10 +82,11 @@ const checkOverdueSubscriptions = async () => {
       const dueDate = new Date(subscription.nextDueDate || subscription.dueDate);
       const daysOverdue = Math.ceil((today - dueDate) / (1000 * 60 * 60 * 24));
 
+      // Create overdue notification
       await createSubscriptionReminder(subscription.userId, subscription, -daysOverdue);
       alertsCreated++;
 
-      // Update subscription status
+      // Update subscription status to overdue
       subscription.status = 'overdue';
       await subscription.save();
     }
