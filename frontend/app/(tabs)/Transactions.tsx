@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -9,18 +9,27 @@ import {
   Alert,
   Modal,
   TextInput,
-  Platform
+  Platform,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Toast } from 'toastify-react-native';
-import { userData, allTransactions, transactionCategories } from '../../data/data';
 import TabNavigation from '../../components/TabNavigation';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { 
+  getAllTransactions, 
+  getTransactionsByCategory, 
+  updateTransaction, 
+  deleteTransaction,
+  Transaction,
+  TransactionCategory
+} from '../../services/transactionService';
 
 const { width } = Dimensions.get('window');
 
@@ -68,8 +77,70 @@ export default function Transactions() {
     frequency: 'monthly' as 'weekly' | 'monthly' | 'custom'
   });
 
+  // API state
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionCategories, setTransactionCategories] = useState<TransactionCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [totalBalance, setTotalBalance] = useState(0);
+
+  // Fetch transactions on mount and when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchTransactions();
+      if (activeTab === 'groups') {
+        fetchTransactionsByCategory();
+      }
+    }, [activeTab])
+  );
+
+  const fetchTransactions = async () => {
+    try {
+      setIsLoading(true);
+      const response = await getAllTransactions();
+      
+      if (response.success && response.data.transactions) {
+        setTransactions(response.data.transactions);
+        
+        // Calculate total balance
+        const balance = response.data.transactions.reduce((sum, txn) => sum + txn.amount, 0);
+        setTotalBalance(balance);
+      }
+    } catch (error: any) {
+      console.error('Error fetching transactions:', error);
+      Toast.error(`❌ ${error.response?.data?.message || 'Failed to fetch transactions'}`, 'top');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchTransactionsByCategory = async () => {
+    try {
+      const response = await getTransactionsByCategory();
+      
+      if (response.success && response.data.categories) {
+        setTransactionCategories(response.data.categories);
+      }
+    } catch (error: any) {
+      console.error('Error fetching categories:', error);
+      Toast.error(`❌ ${error.response?.data?.message || 'Failed to fetch categories'}`, 'top');
+    }
+  };
+
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchTransactions();
+    if (activeTab === 'groups') {
+      await fetchTransactionsByCategory();
+    }
+    setIsRefreshing(false);
+  };
+
   const handleTabChange = (tabKey: string) => {
     setActiveTab(tabKey);
+    if (tabKey === 'groups' && transactionCategories.length === 0) {
+      fetchTransactionsByCategory();
+    }
   };
 
   const toggleCategory = (categoryName: string) => {
@@ -163,7 +234,7 @@ export default function Transactions() {
   );
 
   const handleEditTransaction = (transactionId: string) => {
-    const transaction = allTransactions.find(t => t.id.toString() === transactionId.toString());
+    const transaction = transactions.find(t => t.id.toString() === transactionId.toString());
     if (transaction) {
       setEditingTransaction(transaction);
       const txnType = transaction.type as 'income' | 'expense';
@@ -176,8 +247,8 @@ export default function Transactions() {
         amount: Math.abs(transaction.amount).toString(),
         description: transaction.name,
         selectedCategory: foundCategory,
-        date: new Date(),
-        isRecurring: false,
+        date: new Date(transaction.date),
+        isRecurring: transaction.isRecurring || false,
         frequency: 'monthly'
       });
       setIsEditModalVisible(true);
@@ -187,10 +258,34 @@ export default function Transactions() {
     }
   };
 
-  const handleDeleteTransaction = (transactionId: string) => {
-    // TODO: Implement delete functionality
-    console.log('Delete transaction:', transactionId);
-    Toast.info('Delete functionality coming soon!', 'top');
+  const handleDeleteTransaction = async (transactionId: string) => {
+    Alert.alert(
+      'Delete Transaction',
+      'Are you sure you want to delete this transaction?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteTransaction(transactionId);
+              Toast.success('✅ Transaction deleted successfully!', 'top');
+              await fetchTransactions();
+              if (activeTab === 'groups') {
+                await fetchTransactionsByCategory();
+              }
+            } catch (error: any) {
+              console.error('Error deleting transaction:', error);
+              Toast.error(`❌ ${error.response?.data?.message || 'Failed to delete transaction'}`, 'top');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleTypeChange = (newType: 'income' | 'expense') => {
@@ -219,16 +314,46 @@ export default function Transactions() {
     }
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editForm.amount || !editForm.description) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
-    // Update the transaction in the data
-    // Note: In a real app, this would update the backend/database
-    setIsEditModalVisible(false);
-    Toast.success('✅ Transaction updated successfully!', 'top');
+    if (!editingTransaction) {
+      Alert.alert('Error', 'No transaction selected');
+      return;
+    }
+
+    try {
+      const updateData = {
+        name: editForm.description.trim(),
+        description: editForm.description.trim(),
+        amount: parseFloat(editForm.amount),
+        type: editForm.type,
+        category: editForm.selectedCategory.name,
+        icon: editForm.selectedCategory.icon,
+        date: editForm.date.toISOString(),
+        isRecurring: editForm.isRecurring,
+        recurringDetails: editForm.isRecurring ? {
+          frequency: editForm.frequency,
+          startDate: editForm.date.toISOString(),
+        } : undefined,
+      };
+
+      await updateTransaction(editingTransaction.id, updateData);
+      
+      setIsEditModalVisible(false);
+      Toast.success('✅ Transaction updated successfully!', 'top');
+      
+      await fetchTransactions();
+      if (activeTab === 'groups') {
+        await fetchTransactionsByCategory();
+      }
+    } catch (error: any) {
+      console.error('Error updating transaction:', error);
+      Toast.error(`❌ ${error.response?.data?.message || 'Failed to update transaction'}`, 'top');
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -237,6 +362,39 @@ export default function Transactions() {
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatTransactionDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const transactionDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    const diffTime = today.getTime() - transactionDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Format time
+    const timeStr = date.toLocaleTimeString('en-IN', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    if (diffDays === 0) {
+      return `Today, ${timeStr}`;
+    } else if (diffDays === 1) {
+      return `Yesterday, ${timeStr}`;
+    } else if (diffDays < 7) {
+      const dayName = date.toLocaleDateString('en-IN', { weekday: 'long' });
+      return `${dayName}, ${timeStr}`;
+    } else {
+      const dateStr = date.toLocaleDateString('en-IN', { 
+        day: '2-digit', 
+        month: 'short', 
+        year: diffDays > 365 ? 'numeric' : undefined 
+      });
+      return `${dateStr}, ${timeStr}`;
+    }
   };
 
   const TransactionItem = ({ item }: { item: any }) => (
@@ -261,12 +419,20 @@ export default function Transactions() {
 
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center flex-1">
-          <View className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center mr-3">
-            <Text className="text-lg">{item.icon}</Text>
+          <View className={`w-12 h-12 rounded-full items-center justify-center mr-3 ${
+            item.type === 'income' ? 'bg-green-100' : 'bg-red-100'
+          }`}>
+            <Ionicons 
+              name={item.icon || 'ellipsis-horizontal-outline'} 
+              size={24} 
+              color={item.type === 'income' ? '#22c55e' : '#ef4444'} 
+            />
           </View>
           <View className="flex-1 pr-14">
             <Text className="font-semibold text-gray-800 text-base">{item.name}</Text>
-            <Text className="text-gray-500 text-sm">{item.timestamp}</Text>
+            <Text className="text-gray-500 text-xs mt-0.5">
+              {formatTransactionDate(item.date || item.timestamp)}
+            </Text>
           </View>
         </View>
         <View className="items-end mt-6">
@@ -283,6 +449,7 @@ export default function Transactions() {
 
   const CategoryItem = ({ category }: { category: any }) => {
     const isExpanded = expandedCategories.includes(category.name);
+    const avgAmount = category.totalAmount / category.transactions.length;
     
     return (
       <View className="bg-white mx-4 mb-3 rounded-2xl shadow-sm border border-gray-50 overflow-hidden">
@@ -292,10 +459,15 @@ export default function Transactions() {
         >
           <View className="flex-row items-center flex-1">
             <View 
-              className="w-12 h-12 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: category.color + '20' }}
+              className={`w-12 h-12 rounded-full items-center justify-center mr-3 ${
+                avgAmount >= 0 ? 'bg-green-100' : 'bg-red-100'
+              }`}
             >
-              <Text className="text-lg">{category.icon}</Text>
+              <Ionicons 
+                name={category.icon || 'ellipsis-horizontal-outline'} 
+                size={24} 
+                color={avgAmount >= 0 ? '#22c55e' : '#ef4444'} 
+              />
             </View>
             <View className="flex-1">
               <Text className="font-semibold text-gray-800 text-base">{category.name}</Text>
@@ -320,12 +492,20 @@ export default function Transactions() {
               <View key={transaction.id} className="px-4 py-3 border-b border-gray-50 last:border-b-0">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center flex-1">
-                    <View className="w-8 h-8 bg-gray-100 rounded-full items-center justify-center mr-3">
-                      <Text className="text-sm">{transaction.icon}</Text>
+                    <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${
+                      transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'
+                    }`}>
+                      <Ionicons 
+                        name={transaction.icon || 'ellipsis-horizontal-outline'} 
+                        size={16} 
+                        color={transaction.type === 'income' ? '#22c55e' : '#ef4444'} 
+                      />
                     </View>
                     <View className="flex-1">
                       <Text className="font-medium text-gray-700 text-sm">{transaction.name}</Text>
-                      <Text className="text-gray-400 text-xs">{transaction.date}</Text>
+                      <Text className="text-gray-400 text-xs">
+                        {formatTransactionDate(transaction.date)}
+                      </Text>
                     </View>
                   </View>
                   <Text className={`font-semibold text-sm ${
@@ -359,7 +539,7 @@ export default function Transactions() {
             <View className="bg-white rounded-2xl p-4 shadow-lg">
               <View className="items-center mb-4">
                 <Text className="text-gray-500 text-xs mb-1">Total Balance</Text>
-                <Text className="text-gray-800 text-2xl font-bold">₹ 2,548.00</Text>
+                <Text className="text-gray-800 text-2xl font-bold">₹ {totalBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                 <Text className="text-gray-400 text-xs mt-1">as of today</Text>
               </View>
 
@@ -412,16 +592,25 @@ export default function Transactions() {
             className="flex-1"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 100 }}
+            refreshControl={
+              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+            }
           >
-            {activeTab === 'transactions' ? (
+            {isLoading ? (
+              <View className="items-center justify-center py-20">
+                <ActivityIndicator size="large" color="#3B82F6" />
+                <Text className="text-gray-400 text-base mt-4">Loading transactions...</Text>
+              </View>
+            ) : activeTab === 'transactions' ? (
               // Transactions Tab Content
               <View className="pb-4">
-                {allTransactions.length === 0 ? (
+                {transactions.length === 0 ? (
                   <View className="items-center justify-center py-20">
                     <Text className="text-gray-400 text-base">No transactions yet</Text>
+                    <Text className="text-gray-400 text-sm mt-2">Add your first transaction to get started</Text>
                   </View>
                 ) : (
-                  allTransactions.map((transaction) => (
+                  transactions.map((transaction) => (
                     <TransactionItem key={transaction.id} item={transaction} />
                   ))
                 )}

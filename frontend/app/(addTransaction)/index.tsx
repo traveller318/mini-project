@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { Toast } from 'toastify-react-native'
 import { router } from 'expo-router'
+import { createTransaction } from '../../services/transactionService'
 
 // Category options with icons
 const categories = {
@@ -43,6 +44,7 @@ const AddTransactionPage = () => {
   const [showTimePicker, setShowTimePicker] = useState(false)
   const [isRecurring, setIsRecurring] = useState(false)
   const [frequency, setFrequency] = useState<'weekly' | 'monthly' | 'custom'>('monthly')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleTypeChange = (newType: 'income' | 'expense') => {
     setType(newType)
@@ -67,24 +69,54 @@ const AddTransactionPage = () => {
     }
   }
 
-  const handleSubmit = () => {
-    // Handle transaction submission
-    console.log({
-      transactionType,
-      type,
-      amount,
-      description,
-      category: selectedCategory.name,
-      date,
-      isRecurring,
-      frequency: isRecurring ? frequency : null
-    })
-    
-    // Show success toast
-    Toast.success('✅ Transaction added successfully!', 'top')
-    
-    // Navigate to Transactions tab
-    router.push('/(tabs)/Transactions')
+  const handleSubmit = async () => {
+    // Validation
+    if (!amount || parseFloat(amount) <= 0) {
+      Toast.error('❌ Please enter a valid amount', 'top')
+      return
+    }
+
+    if (!description.trim()) {
+      Toast.error('❌ Please enter a description', 'top')
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const transactionData = {
+        name: description.trim(),
+        description: description.trim(),
+        amount: parseFloat(amount),
+        type: type,
+        category: selectedCategory.name,
+        icon: selectedCategory.icon,
+        color: '#3B82F6',
+        date: date.toISOString(),
+        isRecurring: isRecurring,
+        recurringDetails: isRecurring ? {
+          frequency: frequency,
+          startDate: date.toISOString(),
+        } : undefined,
+      }
+
+      console.log('Creating transaction:', transactionData)
+      
+      const response = await createTransaction(transactionData)
+      
+      console.log('Transaction created:', response)
+      
+      // Show success toast
+      Toast.success('✅ Transaction added successfully!', 'top')
+      
+      // Navigate to Transactions tab
+      router.push('/(tabs)/Transactions')
+    } catch (error: any) {
+      console.error('Error creating transaction:', error)
+      Toast.error(`❌ ${error.response?.data?.message || error.message || 'Failed to add transaction'}`, 'top')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const formatDate = (date: Date) => {
@@ -246,6 +278,7 @@ const AddTransactionPage = () => {
           <TouchableOpacity
             className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl py-4 shadow-lg mb-8"
             onPress={handleSubmit}
+            disabled={isSubmitting}
           >
             <LinearGradient
               colors={['#3B82F6', '#2563EB']}
@@ -253,7 +286,9 @@ const AddTransactionPage = () => {
               end={{ x: 1, y: 0 }}
               className="rounded-2xl py-4"
             >
-              <Text className="text-white text-center text-lg font-bold">Add Transaction</Text>
+              <Text className="text-white text-center text-lg font-bold">
+                {isSubmitting ? 'Adding...' : 'Add Transaction'}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,78 +10,89 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Progress from 'react-native-progress';
+import { Toast } from 'toastify-react-native';
+import {
+  getAllGoals,
+  createGoal,
+  updateGoal,
+  deleteGoal,
+  contributeToGoal,
+  setMainGoal as setMainGoalAPI,
+  Goal as ApiGoal,
+} from '../../services/goalService';
 
 const { width } = Dimensions.get('window');
 
 interface Goal {
-  id: string;
+  _id: string;
   name: string;
+  description?: string;
   targetAmount: number;
   currentAmount: number;
   monthlyContribution: number;
   estimatedCompletion: string;
   isMainGoal: boolean;
+  category?: string;
+  color?: string;
+  icon?: string;
+  status?: string;
 }
 
 export default function Goals() {
-  const [goals, setGoals] = useState<Goal[]>([
-    {
-      id: '1',
-      name: 'Emergency Fund',
-      targetAmount: 10000,
-      currentAmount: 6500,
-      monthlyContribution: 500,
-      estimatedCompletion: '2025-07-15',
-      isMainGoal: true,
-    },
-    {
-      id: '2',
-      name: 'Vacation Fund',
-      targetAmount: 5000,
-      currentAmount: 2300,
-      monthlyContribution: 300,
-      estimatedCompletion: '2025-12-01',
-      isMainGoal: false,
-    },
-    {
-      id: '3',
-      name: 'New Car',
-      targetAmount: 25000,
-      currentAmount: 8500,
-      monthlyContribution: 800,
-      estimatedCompletion: '2026-08-15',
-      isMainGoal: false,
-    },
-    {
-      id: '4',
-      name: 'Home Deposit',
-      targetAmount: 50000,
-      currentAmount: 15000,
-      monthlyContribution: 1200,
-      estimatedCompletion: '2027-03-01',
-      isMainGoal: false,
-    },
-  ]);
-
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedGoalForEdit, setSelectedGoalForEdit] = useState<Goal | null>(null);
+  
   const [isContributeModalVisible, setIsContributeModalVisible] = useState(false);
   const [selectedGoalForContribution, setSelectedGoalForContribution] = useState<Goal | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
+  
   const [newGoal, setNewGoal] = useState({
     name: '',
+    description: '',
     targetAmount: '',
     currentAmount: '',
     monthlyContribution: '',
     estimatedCompletion: '',
+    category: 'other',
+    color: '#3B82F6',
   });
+  
   const [contributionData, setContributionData] = useState({
     amount: '',
-    date: new Date().toISOString().split('T')[0], // Default to today
+    date: new Date().toISOString().split('T')[0],
+    note: '',
   });
+
+  // Fetch goals on mount
+  useEffect(() => {
+    fetchGoals();
+  }, []);
+
+  const fetchGoals = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllGoals();
+      if (response.success && response.data?.goals) {
+        setGoals(response.data.goals);
+      }
+    } catch (error: any) {
+      console.error('Error fetching goals:', error);
+      Toast.error(error.message || 'Failed to fetch goals', 'top');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   const mainGoal = goals.find(goal => goal.isMainGoal) || goals[0];
   const otherGoals = goals.filter(goal => !goal.isMainGoal);
@@ -98,40 +109,122 @@ export default function Goals() {
     }).format(amount);
   };
 
-  const makeMainGoal = (goalId: string) => {
-    setGoals(prevGoals =>
-      prevGoals.map(goal => ({
-        ...goal,
-        isMainGoal: goal.id === goalId,
-      }))
-    );
+  const makeMainGoal = async (goalId: string) => {
+    try {
+      const response = await setMainGoalAPI(goalId);
+      if (response.success) {
+        await fetchGoals();
+        Toast.success('Main goal updated successfully', 'top');
+      }
+    } catch (error: any) {
+      console.error('Error setting main goal:', error);
+      Toast.error(error.message || 'Failed to set main goal', 'top');
+    }
   };
 
-  const addNewGoal = () => {
-    if (!newGoal.name || !newGoal.targetAmount || !newGoal.currentAmount || !newGoal.monthlyContribution) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
-    const goal: Goal = {
-      id: Date.now().toString(),
-      name: newGoal.name,
-      targetAmount: parseFloat(newGoal.targetAmount),
-      currentAmount: parseFloat(newGoal.currentAmount),
-      monthlyContribution: parseFloat(newGoal.monthlyContribution),
-      estimatedCompletion: newGoal.estimatedCompletion || new Date().toISOString().split('T')[0],
-      isMainGoal: goals.length === 0,
-    };
-
-    setGoals(prevGoals => [...prevGoals, goal]);
+  const openAddModal = () => {
+    setIsEditMode(false);
+    setSelectedGoalForEdit(null);
     setNewGoal({
       name: '',
+      description: '',
       targetAmount: '',
       currentAmount: '',
       monthlyContribution: '',
       estimatedCompletion: '',
+      category: 'other',
+      color: '#3B82F6',
     });
-    setIsModalVisible(false);
+    setIsModalVisible(true);
+  };
+
+  const openEditModal = (goal: Goal) => {
+    setIsEditMode(true);
+    setSelectedGoalForEdit(goal);
+    setNewGoal({
+      name: goal.name,
+      description: goal.description || '',
+      targetAmount: goal.targetAmount.toString(),
+      currentAmount: goal.currentAmount.toString(),
+      monthlyContribution: goal.monthlyContribution.toString(),
+      estimatedCompletion: goal.estimatedCompletion.split('T')[0],
+      category: goal.category || 'other',
+      color: goal.color || '#3B82F6',
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleSaveGoal = async () => {
+    if (!newGoal.name || !newGoal.targetAmount || !newGoal.monthlyContribution || !newGoal.estimatedCompletion) {
+      Toast.error('Please fill in all required fields', 'top');
+      return;
+    }
+
+    try {
+      const goalData = {
+        name: newGoal.name,
+        description: newGoal.description,
+        targetAmount: parseFloat(newGoal.targetAmount),
+        currentAmount: parseFloat(newGoal.currentAmount || '0'),
+        monthlyContribution: parseFloat(newGoal.monthlyContribution),
+        estimatedCompletion: newGoal.estimatedCompletion,
+        category: newGoal.category,
+        color: newGoal.color,
+      };
+
+      if (isEditMode && selectedGoalForEdit) {
+        // Update existing goal
+        const response = await updateGoal(selectedGoalForEdit._id, goalData);
+        if (response.success) {
+          Toast.success('Goal updated successfully', 'top');
+          await fetchGoals();
+        }
+      } else {
+        // Create new goal
+        const response = await createGoal(goalData);
+        if (response.success) {
+          Toast.success('Goal created successfully', 'top');
+          await fetchGoals();
+          
+          // If this is the first goal, set it as main goal automatically
+          if (goals.length === 0 && response.data?.goal?._id) {
+            await setMainGoalAPI(response.data.goal._id);
+            await fetchGoals();
+          }
+        }
+      }
+
+      setIsModalVisible(false);
+    } catch (error: any) {
+      console.error('Error saving goal:', error);
+      Toast.error(error.message || 'Failed to save goal', 'top');
+    }
+  };
+
+  const handleDeleteGoal = async (goalId: string) => {
+    Alert.alert(
+      'Delete Goal',
+      'Are you sure you want to delete this goal?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await deleteGoal(goalId);
+              if (response.success) {
+                Toast.success('Goal deleted successfully', 'top');
+                await fetchGoals();
+              }
+            } catch (error: any) {
+              console.error('Error deleting goal:', error);
+              Toast.error(error.message || 'Failed to delete goal', 'top');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const openContributeModal = (goal: Goal) => {
@@ -139,10 +232,10 @@ export default function Goals() {
     setContributionData({
       amount: '',
       date: new Date().toISOString().split('T')[0],
+      note: '',
     });
     setIsContributeModalVisible(true);
     
-    // Animate modal appearance
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 300,
@@ -161,28 +254,35 @@ export default function Goals() {
     });
   };
 
-  const contributeToGoal = () => {
+  const handleContribute = async () => {
     if (!contributionData.amount || !selectedGoalForContribution) {
-      Alert.alert('Error', 'Please enter a contribution amount');
+      Toast.error('Please enter a contribution amount', 'top');
       return;
     }
 
     const contributionAmount = parseFloat(contributionData.amount);
     if (isNaN(contributionAmount) || contributionAmount <= 0) {
-      Alert.alert('Error', 'Please enter a valid contribution amount');
+      Toast.error('Please enter a valid contribution amount', 'top');
       return;
     }
 
-    setGoals(prevGoals =>
-      prevGoals.map(goal =>
-        goal.id === selectedGoalForContribution.id
-          ? { ...goal, currentAmount: goal.currentAmount + contributionAmount }
-          : goal
-      )
-    );
+    try {
+      const response = await contributeToGoal(selectedGoalForContribution._id, {
+        amount: contributionAmount,
+        date: contributionData.date,
+        note: contributionData.note,
+        source: 'manual',
+      });
 
-    closeContributeModal();
-    Alert.alert('Success', `Successfully contributed ${formatCurrency(contributionAmount)} to ${selectedGoalForContribution.name}!`);
+      if (response.success) {
+        Toast.success(`Successfully contributed ${formatCurrency(contributionAmount)} to ${selectedGoalForContribution.name}!`, 'top');
+        await fetchGoals();
+        closeContributeModal();
+      }
+    } catch (error: any) {
+      console.error('Error contributing:', error);
+      Toast.error(error.message || 'Failed to add contribution', 'top');
+    }
   };
 
   const contributeToMainGoal = () => {
@@ -192,6 +292,22 @@ export default function Goals() {
   };
 
   const monthlyProgress = mainGoal ? (mainGoal.currentAmount % mainGoal.monthlyContribution) / mainGoal.monthlyContribution : 0;
+
+  if (loading) {
+    return (
+      <LinearGradient
+        colors={['#e0f2fe', '#bae6fd', '#7dd3fc']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        className="flex-1 justify-center items-center"
+      >
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-700 mt-4">
+          Loading goals...
+        </Text>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient
@@ -209,7 +325,7 @@ export default function Goals() {
             Saving Goals
           </Text>
           <TouchableOpacity
-            onPress={() => setIsModalVisible(true)}
+            onPress={openAddModal}
             className="bg-white rounded-full p-3 shadow-md"
           >
             <Ionicons name="add" size={24} color="#2563eb" />
@@ -219,6 +335,22 @@ export default function Goals() {
         {/* Main Goal Card */}
         {mainGoal && (
           <View className="mx-6 mb-8 bg-white rounded-3xl p-6 shadow-lg">
+            {/* Edit and Delete Icons */}
+            <View className="absolute top-4 right-4 flex-row z-10" style={{ gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => openEditModal(mainGoal)}
+                className="w-8 h-8 bg-blue-100 rounded-full items-center justify-center"
+              >
+                <Ionicons name="pencil" size={14} color="#2563eb" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleDeleteGoal(mainGoal._id)}
+                className="w-8 h-8 bg-red-100 rounded-full items-center justify-center"
+              >
+                <Ionicons name="trash-outline" size={14} color="#dc2626" />
+              </TouchableOpacity>
+            </View>
+
             <View className="items-center mb-6">
               <View className="relative items-center justify-center mb-4">
                 <Progress.Circle
@@ -238,6 +370,12 @@ export default function Goals() {
                 {mainGoal.name}
               </Text>
               
+              {mainGoal.description && (
+                <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-500 text-xs mb-2 text-center">
+                  {mainGoal.description}
+                </Text>
+              )}
+              
               <View className="items-center">
                 <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-600 text-sm">
                   {formatCurrency(mainGoal.currentAmount)} of {formatCurrency(mainGoal.targetAmount)}
@@ -249,7 +387,7 @@ export default function Goals() {
             </View>
 
             {/* Monthly Progress */}
-            <View className="mb-6">
+            {/* <View className="mb-6">
               <View className="flex-row justify-between items-center mb-2">
                 <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-700 text-sm">
                   This Month's Progress
@@ -267,7 +405,7 @@ export default function Goals() {
                 borderWidth={0}
                 borderRadius={4}
               />
-            </View>
+            </View> */}
 
             {/* Contribute Button */}
             <TouchableOpacity onPress={contributeToMainGoal}>
@@ -293,14 +431,30 @@ export default function Goals() {
             </Text>
             
             <View className="flex-row flex-wrap" style={{ gap: 12 }}>
-              {otherGoals.map((goal, index) => (
-                <View key={goal.id} className="bg-white rounded-2xl p-4 shadow-md relative" style={{ width: (width - 60) / 2 }}>
-                  {/* Contribute Button */}
+              {otherGoals.map((goal) => (
+                <View key={goal._id} className="bg-white rounded-2xl p-4 shadow-md relative" style={{ width: (width - 60) / 2 }}>
+                  {/* Edit and Delete Icons - Top Left */}
+                  <View className="absolute top-2 left-1 flex-row z-10" style={{ gap: 4 }}>
+                    <TouchableOpacity
+                      onPress={() => openEditModal(goal)}
+                      className="w-6 h-6 bg-blue-100 rounded-full items-center justify-center"
+                    >
+                      <Ionicons name="pencil" size={12} color="#2563eb" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteGoal(goal._id)}
+                      className="w-6 h-6 bg-red-100 rounded-full items-center justify-center"
+                    >
+                      <Ionicons name="trash-outline" size={12} color="#dc2626" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Contribute Button - Top Right */}
                   <TouchableOpacity
                     onPress={() => openContributeModal(goal)}
-                    className="absolute top-3 right-3 w-7 h-7 bg-blue-100 rounded-full items-center justify-center z-10"
+                    className="absolute top-2 right-3 w-6 h-6 bg-green-100 rounded-full items-center justify-center z-10"
                   >
-                    <Ionicons name="add" size={16} color="#2563eb" />
+                    <Ionicons name="add" size={16} color="#059669" />
                   </TouchableOpacity>
 
                   <View className="items-center mb-3 mt-2">
@@ -326,7 +480,7 @@ export default function Goals() {
                   </Text>
                   
                   <TouchableOpacity
-                    onPress={() => makeMainGoal(goal.id)}
+                    onPress={() => makeMainGoal(goal._id)}
                     className="bg-blue-50 rounded-lg py-2 px-3"
                   >
                     <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-blue-600 text-xs text-center">
@@ -339,65 +493,88 @@ export default function Goals() {
           </View>
         )}
 
-        {/* Insights Section */}
-        <View className="px-6 pb-8">
-          <Text style={{ fontFamily: 'Poppins-SemiBold' }} className="text-xl text-gray-800 mb-4">
-            Insights
-          </Text>
-          
-          <View className="bg-white rounded-2xl p-4 mb-3 shadow-sm">
-            <View className="flex-row items-center">
-              <View className="bg-green-100 rounded-full p-2 mr-3">
-                <Ionicons name="trending-up" size={20} color="#059669" />
-              </View>
-              <View className="flex-1">
-                <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-800 text-sm">
-                  Great Progress!
-                </Text>
-                <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-600 text-xs">
-                  You're ahead of schedule on 2 of your goals
-                </Text>
-              </View>
-            </View>
+        {/* Empty State */}
+        {goals.length === 0 && (
+          <View className="px-6 items-center justify-center" style={{ marginTop: 100 }}>
+            <Ionicons name="wallet-outline" size={80} color="#94a3b8" />
+            <Text style={{ fontFamily: 'Poppins-SemiBold' }} className="text-gray-600 text-xl mt-4 mb-2">
+              No Goals Yet
+            </Text>
+            <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-500 text-sm text-center mb-6">
+              Create your first saving goal to start tracking your progress
+            </Text>
+            <TouchableOpacity
+              onPress={openAddModal}
+              className="bg-blue-500 rounded-xl py-3 px-8"
+            >
+              <Text style={{ fontFamily: 'Poppins-SemiBold' }} className="text-white">
+                Create Goal
+              </Text>
+            </TouchableOpacity>
           </View>
-          
-          <View className="bg-white rounded-2xl p-4 mb-3 shadow-sm">
-            <View className="flex-row items-center">
-              <View className="bg-blue-100 rounded-full p-2 mr-3">
-                <Ionicons name="trophy" size={20} color="#2563eb" />
-              </View>
-              <View className="flex-1">
-                <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-800 text-sm">
-                  Achievement Unlocked
-                </Text>
-                <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-600 text-xs">
-                  Consistent Saver - 3 months in a row!
-                </Text>
-              </View>
-            </View>
-          </View>
-          
-          <View className="bg-white rounded-2xl p-4 shadow-sm">
-            <View className="flex-row items-center">
-              <View className="bg-yellow-100 rounded-full p-2 mr-3">
-                <Ionicons name="bulb" size={20} color="#d97706" />
-              </View>
-              <View className="flex-1">
-                <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-800 text-sm">
-                  Savings Tip
-                </Text>
-                <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-600 text-xs">
-                  Consider increasing your Emergency Fund by 10%
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
+        )}
 
-         <View style={{ height: 60 }} />
+        {/* Insights Section */}
+        {goals.length > 0 && (
+          <View className="px-6 pb-8">
+            <Text style={{ fontFamily: 'Poppins-SemiBold' }} className="text-xl text-gray-800 mb-4">
+              Insights
+            </Text>
+            
+            <View className="bg-white rounded-2xl p-4 mb-3 shadow-sm">
+              <View className="flex-row items-center">
+                <View className="bg-green-100 rounded-full p-2 mr-3">
+                  <Ionicons name="trending-up" size={20} color="#059669" />
+                </View>
+                <View className="flex-1">
+                  <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-800 text-sm">
+                    Total Goals: {goals.length}
+                  </Text>
+                  <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-600 text-xs">
+                    Active goals: {goals.filter(g => g.status === 'active').length}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            <View className="bg-white rounded-2xl p-4 mb-3 shadow-sm">
+              <View className="flex-row items-center">
+                <View className="bg-blue-100 rounded-full p-2 mr-3">
+                  <Ionicons name="trophy" size={20} color="#2563eb" />
+                </View>
+                <View className="flex-1">
+                  <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-800 text-sm">
+                    Total Saved
+                  </Text>
+                  <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-600 text-xs">
+                    {formatCurrency(goals.reduce((sum, g) => sum + g.currentAmount, 0))}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            <View className="bg-white rounded-2xl p-4 shadow-sm">
+              <View className="flex-row items-center">
+                <View className="bg-yellow-100 rounded-full p-2 mr-3">
+                  <Ionicons name="bulb" size={20} color="#d97706" />
+                </View>
+                <View className="flex-1">
+                  <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-800 text-sm">
+                    Monthly Commitment
+                  </Text>
+                  <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-600 text-xs">
+                    {formatCurrency(goals.reduce((sum, g) => sum + g.monthlyContribution, 0))}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View style={{ height: 60 }} />
       </ScrollView>
 
-      {/* New Goal Modal */}
+      {/* New/Edit Goal Modal */}
       <Modal
         animationType="none"
         transparent={true}
@@ -408,7 +585,7 @@ export default function Goals() {
           <View className="bg-white rounded-3xl mx-6 p-6 w-11/12 max-w-md max-h-[80%]">
             <View className="flex-row justify-between items-center mb-6">
               <Text style={{ fontFamily: 'Poppins-SemiBold' }} className="text-xl text-gray-800">
-                New Saving Goal
+                {isEditMode ? 'Edit Goal' : 'New Saving Goal'}
               </Text>
               <TouchableOpacity onPress={() => setIsModalVisible(false)}>
                 <Ionicons name="close" size={24} color="#6b7280" />
@@ -426,6 +603,21 @@ export default function Goals() {
                   value={newGoal.name}
                   onChangeText={(text) => setNewGoal({ ...newGoal, name: text })}
                   style={{ fontFamily: 'Poppins-Regular' }}
+                />
+              </View>
+              
+              <View className="mb-4">
+                <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-700 text-sm mb-2">
+                  Description
+                </Text>
+                <TextInput
+                  className="bg-gray-50 rounded-xl p-4 text-gray-800"
+                  placeholder="What's this goal for?"
+                  value={newGoal.description}
+                  onChangeText={(text) => setNewGoal({ ...newGoal, description: text })}
+                  style={{ fontFamily: 'Poppins-Regular' }}
+                  multiline
+                  numberOfLines={2}
                 />
               </View>
               
@@ -473,7 +665,7 @@ export default function Goals() {
               
               <View className="mb-6">
                 <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-700 text-sm mb-2">
-                  Estimated Completion
+                  Estimated Completion *
                 </Text>
                 <TextInput
                   className="bg-gray-50 rounded-xl p-4 text-gray-800"
@@ -492,10 +684,12 @@ export default function Goals() {
                   <Text style={{ fontFamily: 'Poppins-SemiBold' }} className="text-gray-600">Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  onPress={addNewGoal}
+                  onPress={handleSaveGoal}
                   className="flex-1 py-3 rounded-xl bg-blue-500 ml-2 items-center"
                 >
-                  <Text style={{ fontFamily: 'Poppins-SemiBold' }} className="text-white">Save Goal</Text>
+                  <Text style={{ fontFamily: 'Poppins-SemiBold' }} className="text-white">
+                    {isEditMode ? 'Update Goal' : 'Save Goal'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -554,7 +748,7 @@ export default function Goals() {
                 </View>
 
                 {/* Date of Contribution */}
-                <View className="mb-6">
+                <View className="mb-4">
                   <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-700 text-sm mb-2">
                     Date of Contribution
                   </Text>
@@ -570,6 +764,22 @@ export default function Goals() {
                   </Text>
                 </View>
 
+                {/* Note */}
+                <View className="mb-6">
+                  <Text style={{ fontFamily: 'Poppins-Medium' }} className="text-gray-700 text-sm mb-2">
+                    Note (Optional)
+                  </Text>
+                  <TextInput
+                    className="border border-gray-200 rounded-xl px-4 py-3 text-gray-800"
+                    placeholder="Add a note..."
+                    value={contributionData.note}
+                    onChangeText={(text) => setContributionData({ ...contributionData, note: text })}
+                    style={{ fontFamily: 'Poppins-Regular' }}
+                    multiline
+                    numberOfLines={2}
+                  />
+                </View>
+
                 {/* Buttons */}
                 <View className="flex-row justify-between">
                   <TouchableOpacity 
@@ -579,7 +789,7 @@ export default function Goals() {
                     <Text style={{ fontFamily: 'Poppins-SemiBold' }} className="text-gray-600">Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
-                    onPress={contributeToGoal}
+                    onPress={handleContribute}
                     className="flex-1 py-3 rounded-xl bg-blue-500 ml-2 items-center"
                   >
                     <Text style={{ fontFamily: 'Poppins-SemiBold' }} className="text-white">Contribute</Text>

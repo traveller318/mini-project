@@ -56,3 +56,14 @@ export const API_ENDPOINTS = {
 export const buildApiUrl = (endpoint: string): string => {
   return `${API_BASE_URL}${endpoint}`;
 };
+
+// Token storage
+let authToken: string | null = null;
+
+export const setAuthToken = (token: string | null) => {
+  authToken = token;
+};
+
+export const getAuthToken = (): string | null => {
+  return authToken;
+};

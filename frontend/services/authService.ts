@@ -1,5 +1,5 @@
 import axios from "axios";
-import { buildApiUrl, API_ENDPOINTS } from "../config/api";
+import { buildApiUrl, API_ENDPOINTS, setAuthToken } from "../config/api";
 
 // Types
 export interface SignUpData {
@@ -73,6 +73,11 @@ export const signIn = async (
 
     const response = await axiosInstance.post(url, credentials);
     console.log("✅ Sign in successful:", response.data);
+
+    // Store the auth token for API calls
+    if (response.data.data?.token) {
+      setAuthToken(response.data.data.token);
+    }
 
     return response.data;
   } catch (error: any) {
