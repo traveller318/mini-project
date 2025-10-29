@@ -69,6 +69,9 @@ app.use('/uploads', express.static('uploads'));
 // ============================================
 
 // Health Check Route
+app.get('/', (req, res) => {
+  res.json({ message: 'Backend server is running!' });
+});
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
