@@ -7,17 +7,50 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  ActivityIndicator,
+  Alert
 } from 'react-native'
 import React, { useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
+import { signIn } from '../../services/authService'
  
 const SignIn = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const handleSignIn = async () => {
+    // Validation
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields')
+      return
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address')
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await signIn({ email, password })
+      
+      if (response.success) {
+        router.replace('/(tabs)')
+      }
+    } catch (error: any) {
+      console.error('Sign in error:', error)
+      Alert.alert('Error', error.message || 'Login failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <LinearGradient
@@ -112,20 +145,28 @@ const SignIn = () => {
             </View>
 
             {/* Login Button */}
-            <TouchableOpacity className="mb-8" onPress={() => router.replace('/(tabs)')}>
+            <TouchableOpacity 
+              className="mb-8" 
+              onPress={handleSignIn}
+              disabled={loading}
+            >
               <LinearGradient
-                colors={['#2563eb', '#3b82f6']}
+                colors={loading ? ['#94a3b8', '#cbd5e1'] : ['#2563eb', '#3b82f6']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 className="w-full h-14 rounded-full items-center justify-center shadow-lg shadow-blue-200"
                 style={{ borderRadius: 28 }}
               >
-                <Text 
-                  style={{ fontFamily: 'Poppins-SemiBold' }} 
-                  className="text-white text-lg"
-                >
-                  Login
-                </Text>
+                {loading ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text 
+                    style={{ fontFamily: 'Poppins-SemiBold' }} 
+                    className="text-white text-lg"
+                  >
+                    Login
+                  </Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
 

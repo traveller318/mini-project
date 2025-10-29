@@ -8,17 +8,62 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
+  Alert
 } from "react-native";
 import React, { useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { signUp } from '../../services/authService'
 
 const SignUp = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSignUp = async () => {
+    // Validation
+    if (!name || !email || !password) {
+      Alert.alert('Error', 'Please fill in all fields')
+      return
+    }
+
+    // Name validation
+    if (name.trim().length < 2) {
+      Alert.alert('Error', 'Please enter a valid name')
+      return
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address')
+      return
+    }
+
+    // Password validation
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long')
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await signUp({ name, email, password })
+      
+      if (response.success) {
+        router.replace('/(tabs)')
+      }
+    } catch (error: any) {
+      console.error('Sign up error:', error)
+      Alert.alert('Error', error.message || 'Sign up failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <LinearGradient
@@ -134,21 +179,26 @@ const SignUp = () => {
             {/* Sign Up Button */}
             <TouchableOpacity
               className="mb-8"
-              onPress={() => router.replace("/(tabs)")}
+              onPress={handleSignUp}
+              disabled={loading}
             >
               <LinearGradient
-                colors={["#2563eb", "#3b82f6"]}
+                colors={loading ? ['#94a3b8', '#cbd5e1'] : ["#2563eb", "#3b82f6"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 className="w-full h-14 rounded-full items-center justify-center shadow-lg shadow-blue-200"
                 style={{ borderRadius: 28 }}
               >
-                <Text
-                  style={{ fontFamily: "Poppins-SemiBold" }}
-                  className="text-white text-lg"
-                >
-                  Sign Up
-                </Text>
+                {loading ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text
+                    style={{ fontFamily: "Poppins-SemiBold" }}
+                    className="text-white text-lg"
+                  >
+                    Sign Up
+                  </Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
 
