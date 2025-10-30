@@ -151,13 +151,35 @@ export default function Transactions() {
     );
   };
 
-  const handleScanPress = async () => {
+  const handleScanPress = () => {
+    Alert.alert(
+      'Select Image Source',
+      'Choose where you want to get the image from',
+      [
+        {
+          text: 'Take Photo',
+          onPress: handleTakePhoto,
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: handlePickFromGallery,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handleTakePhoto = async () => {
     try {
       // Request camera permissions
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       if (status !== 'granted') {
-        Toast.error('📷 Camera permission required to scan receipts', 'top');
+        Toast.error('📷 Camera permission required to take photos', 'top');
         return;
       }
 
@@ -190,6 +212,48 @@ export default function Transactions() {
     } catch (error) {
       console.log('Camera Error: ', error);
       Toast.error('❌ Unable to access camera. Please try again.', 'top');
+    }
+  };
+
+  const handlePickFromGallery = async () => {
+    try {
+      // Request media library permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Toast.error('📷 Gallery permission required to select photos', 'top');
+        return;
+      }
+
+      // Show loading toast
+      Toast.info('📷 Opening gallery...', 'top');
+
+      // Launch image library
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        aspect: [4, 3],
+        quality: 0.8,
+        base64: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        // Navigate to afterTake screen with the image data
+        router.push({
+          pathname: '/(afterTake)',
+          params: {
+            imageUri: asset.uri,
+            fileName: asset.fileName || 'gallery_image.jpg',
+            fileSize: asset.fileSize?.toString() || '0',
+            width: asset.width?.toString() || '0',
+            height: asset.height?.toString() || '0'
+          }
+        });
+      }
+    } catch (error) {
+      console.log('Gallery Error: ', error);
+      Toast.error('❌ Unable to access gallery. Please try again.', 'top');
     }
   };
 
