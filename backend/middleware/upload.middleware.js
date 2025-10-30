@@ -85,12 +85,33 @@ const uploadProfilePicture = multer({
 /**
  * Transaction Receipt Upload
  * Single document/image, max 10MB
+ * Supports: images (JPEG, PNG, GIF, WebP) and PDF files
  */
 const uploadReceipt = multer({
   storage: createStorage('uploads/receipts'),
   fileFilter: documentFileFilter,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB
+  }
+}).single('receipt');
+
+/**
+ * Transaction Receipt/Bill PDF Upload
+ * Single PDF file, max 15MB (PDFs can be larger)
+ */
+const uploadReceiptPDF = multer({
+  storage: createStorage('uploads/receipts'),
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['application/pdf'];
+    
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF files are allowed.'), false);
+    }
+  },
+  limits: {
+    fileSize: 15 * 1024 * 1024 // 15MB for PDFs
   }
 }).single('receipt');
 
@@ -213,6 +234,7 @@ const deleteFiles = (filePaths) => {
 module.exports = {
   uploadProfilePicture,
   uploadReceipt,
+  uploadReceiptPDF,
   uploadMultipleReceipts,
   uploadDocument,
   uploadVoiceRecording,

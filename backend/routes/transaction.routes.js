@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const transactionController = require('../controllers/transaction.controller');
 const { protect } = require('../middleware/auth.middleware');
-const { uploadReceipt } = require('../middleware/upload.middleware');
+const { uploadReceipt, uploadReceiptPDF } = require('../middleware/upload.middleware');
 
 // All routes are protected
 router.use(protect);
@@ -18,6 +18,7 @@ router.delete('/:id', transactionController.deleteTransaction);
 
 // OCR + AI Receipt Scanning
 router.post('/scan-receipt', uploadReceipt, transactionController.scanReceipt);
+router.post('/scan-receipt-pdf', uploadReceiptPDF, transactionController.scanReceiptPDF);
 router.post('/save-extracted', transactionController.saveExtractedTransactions);
 
 // AI Category Suggestion

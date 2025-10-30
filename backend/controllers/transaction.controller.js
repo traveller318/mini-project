@@ -414,6 +414,126 @@ exports.scanReceipt = async (req, res) => {
 };
 
 // ============================================
+// SCAN RECEIPT/BILL PDF WITH TEXT EXTRACTION + AI
+// ============================================
+exports.scanReceiptPDF = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No PDF file uploaded'
+      });
+    }
+
+    // Verify it's a PDF file
+    if (req.file.mimetype !== 'application/pdf') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Only PDF files are allowed.'
+      });
+    }
+
+    const receiptPath = `/uploads/receipts/${req.file.filename}`;
+    const fullPath = `uploads/receipts/${req.file.filename}`;
+
+    console.log('📄 PDF Receipt uploaded:', req.file.filename);
+    console.log('📊 File size:', (req.file.size / 1024).toFixed(2), 'KB');
+
+    // Import PDF and Gemini services
+    const { extractTextFromPDF, validatePDFResult } = require('../utils/pdfService');
+    const { parseReceiptWithGemini, validateTransactionData } = require('../utils/geminiService');
+
+    // Step 1: Extract text from PDF
+    console.log('🔍 Step 1: Extracting text from PDF...');
+    const pdfResult = await extractTextFromPDF(fullPath);
+
+    // Validate PDF result
+    const pdfValidation = validatePDFResult(pdfResult);
+    if (!pdfValidation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to extract text from PDF. Please ensure the PDF contains readable text.',
+        warnings: pdfValidation.warnings,
+        hint: 'PDFs created from scanned images may not contain extractable text. Try using the image upload feature instead.'
+      });
+    }
+
+    // Log extracted text preview
+    console.log('📝 Text preview:', pdfResult.text.substring(0, 200) + '...');
+    console.log('📊 PDF Stats:', {
+      pages: pdfResult.pageCount,
+      words: pdfResult.wordCount,
+      confidence: `${pdfResult.confidence}%`
+    });
+
+    // Step 2: Parse extracted text with Gemini AI
+    console.log('🤖 Step 2: Parsing with Gemini AI (gemini-2.5-flash)...');
+    const parsedData = await parseReceiptWithGemini(pdfResult.text);
+
+    // Handle parsing failure with fallback
+    if (!parsedData.success && parsedData.fallbackTransaction) {
+      return res.status(200).json({
+        success: true,
+        message: 'PDF scanned with limited accuracy. Please review the transaction details.',
+        data: {
+          receiptDocument: receiptPath,
+          documentType: 'pdf',
+          merchantName: 'Unknown Merchant',
+          totalAmount: parsedData.fallbackTransaction.amount,
+          extractedTransactions: [parsedData.fallbackTransaction],
+          pdfConfidence: pdfResult.confidence,
+          parseConfidence: 'low',
+          pageCount: pdfResult.pageCount,
+          warnings: ['AI parsing failed. Using basic extraction.', ...pdfValidation.warnings]
+        }
+      });
+    }
+
+    // Validate transaction data
+    const dataValidation = validateTransactionData(parsedData);
+
+    // Step 3: Return parsed transaction data
+    res.status(200).json({
+      success: true,
+      message: 'PDF receipt scanned successfully',
+      data: {
+        receiptDocument: receiptPath,
+        documentType: 'pdf',
+        merchantName: parsedData.merchantName,
+        totalAmount: parsedData.totalAmount,
+        date: parsedData.date,
+        time: parsedData.time,
+        paymentMethod: parsedData.paymentMethod,
+        extractedTransactions: parsedData.transactions,
+        pdfConfidence: pdfResult.confidence,
+        parseConfidence: parsedData.confidence,
+        pageCount: pdfResult.pageCount,
+        warnings: [...pdfValidation.warnings, ...dataValidation.warnings],
+        quality: dataValidation.quality,
+        metadata: {
+          wordCount: pdfResult.wordCount,
+          lineCount: pdfResult.lineCount,
+          pageCount: pdfResult.pageCount,
+          pdfMetadata: pdfResult.metadata,
+          processingTime: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Scan PDF Receipt Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error scanning PDF receipt',
+      error: error.message,
+      hint: 'Please ensure the PDF contains readable text and is not corrupted. Scanned image PDFs may require conversion to images first.'
+    });
+  }
+};
+
+// ============================================
 // SAVE EXTRACTED TRANSACTIONS (BULK)
 // ============================================
 exports.saveExtractedTransactions = async (req, res) => {
