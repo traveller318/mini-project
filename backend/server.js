@@ -105,6 +105,7 @@ app.use('/api/v1/subscriptions', require('./routes/subscription.routes'));
 app.use('/api/v1/insights', require('./routes/insights.routes'));
 app.use('/api/v1/investments', require('./routes/investment.routes'));
 app.use('/api/v1/voice', require('./routes/voice.routes'));
+app.use('/api/v1/voice-agent', require('./routes/voiceAgent.routes'));
 app.use('/api/v1/notifications', require('./routes/notification.routes'));
 
 // ============================================

@@ -1,0 +1,317 @@
+{
+  "apiVersion": "1.0.0",
+  "description": "Finance Tracker Backend API Routes Documentation for Voice Agent",
+  "baseUrl": "/api/v1",
+  "routes": [
+    {
+      "category": "Transactions",
+      "endpoints": [
+        {
+          "path": "/transactions",
+          "method": "GET",
+          "description": "Get all transactions for the authenticated user with optional filters",
+          "auth": "required",
+          "controllerFunction": "getAllTransactions",
+          "parameters": {
+            "type": "expense or income (optional)",
+            "category": "Food, Transport, Shopping, etc. (optional)",
+            "startDate": "YYYY-MM-DD format (optional)",
+            "endDate": "YYYY-MM-DD format (optional)",
+            "limit": "number of results (optional, default 20)",
+            "page": "page number (optional, default 1)"
+          },
+          "examples": [
+            "Show me my recent transactions",
+            "What are my expenses this month?",
+            "Show food transactions",
+            "List all my transactions"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Budget",
+      "endpoints": [
+        {
+          "path": "/budgets",
+          "method": "GET",
+          "description": "Get all budgets for the authenticated user",
+          "auth": "required",
+          "controllerFunction": "getAllBudgets",
+          "parameters": {
+            "category": "Food, Transport, Shopping, etc. (optional)",
+            "status": "active, exceeded (optional)"
+          },
+          "examples": [
+            "What is my budget?",
+            "Show my food budget",
+            "What's my budget for shopping?",
+            "Show all my budgets",
+            "Explain all my budgets"
+          ]
+        },
+        {
+          "path": "/budgets/:id",
+          "method": "GET",
+          "description": "Get a specific budget by ID",
+          "auth": "required",
+          "controllerFunction": "getBudgetById",
+          "parameters": {
+            "id": "Budget ID (required in URL)"
+          },
+          "examples": [
+            "Show details of my food budget"
+          ]
+        },
+        {
+          "path": "/budgets",
+          "method": "POST",
+          "description": "Create a new budget",
+          "auth": "required",
+          "parameters": {
+            "category": "Food, Transport, Shopping, etc. (required)",
+            "amount": "Budget amount (required)",
+            "period": "monthly, weekly (required)",
+            "startDate": "YYYY-MM-DD (optional)",
+            "alertThreshold": "percentage (optional, default 80)"
+          },
+          "examples": [
+            "Set a budget of 5000 for food",
+            "Create monthly shopping budget of 3000"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Goals",
+      "endpoints": [
+        {
+          "path": "/goals",
+          "method": "GET",
+          "description": "Get all saving goals for the authenticated user",
+          "auth": "required",
+          "controllerFunction": "getAllGoals",
+          "parameters": {
+            "status": "active, completed, cancelled (optional)"
+          },
+          "examples": [
+            "Show my savings goals",
+            "What are my financial goals?",
+            "List my active goals"
+          ]
+        },
+        {
+          "path": "/goals/:id",
+          "method": "GET",
+          "description": "Get a specific goal by ID",
+          "auth": "required",
+          "controllerFunction": "getGoal",
+          "parameters": {
+            "id": "Goal ID (required in URL)"
+          },
+          "examples": [
+            "Show my vacation goal details"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Subscriptions",
+      "endpoints": [
+        {
+          "path": "/subscriptions",
+          "method": "GET",
+          "description": "Get all subscriptions for the authenticated user",
+          "auth": "required",
+          "controllerFunction": "getAllSubscriptions",
+          "parameters": {
+            "status": "active, cancelled, paused (optional)"
+          },
+          "examples": [
+            "Show my subscriptions",
+            "What subscriptions do I have?",
+            "List my active subscriptions"
+          ]
+        },
+        {
+          "path": "/subscriptions/upcoming",
+          "method": "GET",
+          "description": "Get upcoming subscription payments",
+          "auth": "required",
+          "controllerFunction": "getUpcomingSubscriptions",
+          "parameters": {
+            "days": "number of days ahead (optional, default 30)"
+          },
+          "examples": [
+            "Show upcoming bills",
+            "What bills are due soon?",
+            "Upcoming subscription payments"
+          ]
+        },
+        {
+          "path": "/subscriptions/:id",
+          "method": "GET",
+          "description": "Get a specific subscription by ID",
+          "auth": "required",
+          "controllerFunction": "getSubscription",
+          "parameters": {
+            "id": "Subscription ID (required in URL)"
+          },
+          "examples": [
+            "Show my Netflix subscription"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Insights",
+      "endpoints": [
+        {
+          "path": "/insights",
+          "method": "GET",
+          "description": "Get comprehensive financial insights",
+          "auth": "required",
+          "controllerFunction": "getInsights",
+          "parameters": {
+            "period": "month, week, year (optional, default month)"
+          },
+          "examples": [
+            "Show my insights",
+            "Give me financial insights",
+            "What should I know about my finances?"
+          ]
+        },
+        {
+          "path": "/insights/spending",
+          "method": "GET",
+          "description": "Get expense distribution by category",
+          "auth": "required",
+          "controllerFunction": "getExpenseDistribution",
+          "parameters": {
+            "period": "month, week, year (optional, default month)"
+          },
+          "examples": [
+            "Show my spending insights",
+            "Analyze my spending",
+            "What are my spending patterns?",
+            "Where am I spending most?"
+          ]
+        },
+        {
+          "path": "/insights/trends",
+          "method": "GET",
+          "description": "Get category spending trends over time",
+          "auth": "required",
+          "controllerFunction": "getCategoryTrends",
+          "parameters": {
+            "months": "number of months (optional, default 6)"
+          },
+          "examples": [
+            "Show my spending trends",
+            "How has my spending changed?",
+            "Monthly spending trends"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "User",
+      "endpoints": [
+        {
+          "path": "/users/profile",
+          "method": "GET",
+          "description": "Get current user profile information",
+          "auth": "required",
+          "parameters": {},
+          "examples": [
+            "Show my profile",
+            "What's my balance?",
+            "Show my account information"
+          ]
+        },
+        {
+          "path": "/users/balance",
+          "method": "GET",
+          "description": "Get current account balance",
+          "auth": "required",
+          "parameters": {},
+          "examples": [
+            "What's my balance?",
+            "How much money do I have?",
+            "Show my current balance"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Investments",
+      "endpoints": [
+        {
+          "path": "/investments/recommendations",
+          "method": "GET",
+          "description": "Get personalized investment recommendations",
+          "auth": "required",
+          "parameters": {
+            "riskProfile": "Low, Moderate, High (optional)"
+          },
+          "examples": [
+            "Show investment recommendations",
+            "Where should I invest?",
+            "Give me investment advice"
+          ]
+        }
+      ]
+    }
+  ],
+  "commonCategories": [
+    "Food",
+    "Transport",
+    "Shopping",
+    "Entertainment",
+    "Bills",
+    "Health",
+    "Education",
+    "Travel",
+    "Groceries",
+    "Rent",
+    "Other"
+  ],
+  "commonQueries": [
+    {
+      "query": "What is my budget for food?",
+      "intent": "get_budget",
+      "endpoint": "/budgets",
+      "parameters": { "category": "Food" }
+    },
+    {
+      "query": "Show spending report",
+      "intent": "get_spending_report",
+      "endpoint": "/insights/spending",
+      "parameters": { "period": "month" }
+    },
+    {
+      "query": "Recent transactions",
+      "intent": "get_transactions",
+      "endpoint": "/transactions",
+      "parameters": { "limit": 10 }
+    },
+    {
+      "query": "Upcoming bills",
+      "intent": "get_upcoming_bills",
+      "endpoint": "/subscriptions/upcoming",
+      "parameters": { "days": 30 }
+    },
+    {
+      "query": "What's my balance?",
+      "intent": "get_balance",
+      "endpoint": "/users/balance",
+      "parameters": {}
+    },
+    {
+      "query": "Show my goals",
+      "intent": "get_goals",
+      "endpoint": "/goals",
+      "parameters": {}
+    }
+  ]
+}

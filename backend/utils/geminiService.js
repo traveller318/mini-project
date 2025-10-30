@@ -456,10 +456,121 @@ Return ONLY the category name from the list above, nothing else. No explanations
   }
 };
 
+/**
+ * Format API response data into natural language for voice agent
+ * @param {Object} apiData - Raw data from API endpoint
+ * @param {string} intent - User's original intent
+ * @param {string} query - User's original query
+ * @returns {Promise<Object>} - Natural language response
+ */
+const formatNaturalResponse = async (apiData, intent, query) => {
+  try {
+    console.log('🗣️  Formatting natural language response...');
+    
+    if (!genAI) {
+      throw new Error('Gemini AI service not available');
+    }
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    // Create context-aware prompt
+    const prompt = `
+You are a friendly financial voice assistant. The user asked: "${query}"
+
+Their intent was: ${intent}
+
+Here is the data retrieved from the backend:
+${JSON.stringify(apiData, null, 2)}
+
+TASK: Convert this data into a natural, conversational response that:
+1. Directly answers the user's question
+2. Highlights key numbers and insights
+3. Is concise but informative (2-4 sentences)
+4. Uses a friendly, helpful tone
+5. Mentions currency as "rupees" or uses ₹ symbol
+6. Provides actionable insights when relevant
+
+EXAMPLES:
+
+Query: "What is my food budget?"
+Response: "Your food budget is set at ₹5,000 for this month. You've spent ₹3,200 so far, which is 64% of your budget. You have ₹1,800 remaining."
+
+Query: "Show my recent transactions"
+Response: "Here are your 5 most recent transactions: Coffee at Starbucks for ₹450, Uber ride for ₹280, Grocery shopping for ₹1,200, Netflix subscription for ₹649, and Dinner at Pizza Hut for ₹890."
+
+Query: "What's my balance?"
+Response: "Your current balance is ₹45,320. Your monthly income is ₹75,000 and you've spent ₹29,680 this month."
+
+Now generate a natural response for the user's query. Return ONLY the response text, no JSON, no markdown, just the natural language answer:`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const naturalResponse = response.text().trim();
+
+    console.log('✅ Natural response generated');
+    console.log(`💬 Response: "${naturalResponse.substring(0, 100)}..."`);
+
+    return {
+      success: true,
+      response: naturalResponse,
+      intent: intent,
+      originalQuery: query
+    };
+
+  } catch (error) {
+    console.error('❌ Natural response formatting error:', error.message);
+    
+    // Fallback: Create a basic response
+    return {
+      success: false,
+      response: 'I found the information you requested. Please check your screen for details.',
+      error: error.message
+    };
+  }
+};
+
+/**
+ * Generate a helpful error message when API call fails
+ * @param {string} query - User's query
+ * @param {string} errorMessage - Error from API
+ * @returns {Promise<string>} - User-friendly error message
+ */
+const formatErrorResponse = async (query, errorMessage) => {
+  try {
+    if (!genAI) {
+      return "I'm sorry, I couldn't process your request. Please try again.";
+    }
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const prompt = `
+The user asked: "${query}"
+
+But we encountered an error: ${errorMessage}
+
+Generate a friendly, helpful error message that:
+1. Apologizes for the issue
+2. Suggests what might be wrong
+3. Tells them what to do next
+4. Keeps it concise (1-2 sentences)
+
+Return ONLY the message text:`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text().trim();
+
+  } catch (error) {
+    return "I'm sorry, I couldn't process your request. Please try again or rephrase your question.";
+  }
+};
+
 module.exports = {
   parseReceiptWithGemini,
   createFallbackTransaction,
   validateTransactionData,
   suggestCategory,
-  getCategoryMetadata
+  getCategoryMetadata,
+  formatNaturalResponse,
+  formatErrorResponse
 };

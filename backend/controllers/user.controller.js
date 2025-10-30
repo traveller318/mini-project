@@ -307,3 +307,44 @@ exports.updateRiskProfile = async (req, res) => {
     });
   }
 };
+
+// ============================================
+// GET USER PROFILE (Alias for voice agent)
+// ============================================
+exports.getUserProfile = async (req, res) => {
+  return exports.getProfile(req, res);
+};
+
+// ============================================
+// GET USER BALANCE
+// ============================================
+exports.getUserBalance = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).select('balance income expense');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        balance: user.balance,
+        income: user.income,
+        expense: user.expense
+      }
+    });
+
+  } catch (error) {
+    console.error('Get User Balance Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching balance',
+      error: error.message
+    });
+  }
+};
