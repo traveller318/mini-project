@@ -20,6 +20,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { scanReceiptPDF, saveExtractedTransactions } from '../../services/transactionService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -59,6 +60,9 @@ const AfterDocUploadPage = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [isAddingToDatabase, setIsAddingToDatabase] = useState(false);
+  const [merchantName, setMerchantName] = useState('');
+  const [receiptDocumentPath, setReceiptDocumentPath] = useState('');
   const [editForm, setEditForm] = useState({
     transactionType: 'debit' as 'credit' | 'debit',
     type: 'expense' as 'income' | 'expense',
@@ -137,18 +141,102 @@ const AfterDocUploadPage = () => {
   };
 
   const handleDeleteTransaction = (transactionId: string) => {
-    setExtractedTransactions(prev => prev.filter(t => t.id !== transactionId));
-    Toast.success('🗑️ Transaction removed', 'top');
+    Alert.alert(
+      'Delete Transaction',
+      'Are you sure you want to remove this transaction from the list?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setExtractedTransactions(prev => prev.filter(t => t.id !== transactionId));
+            Toast.success('🗑️ Transaction removed', 'top');
+          }
+        }
+      ]
+    );
   };
 
-  const handleAddToTransactions = () => {
-    // TODO: Implement saving to main transactions
-    Toast.success('✅ Transactions added successfully!', 'top');
-    
-    // Navigate to transactions after a brief delay
-    setTimeout(() => {
-      router.push('/(tabs)/Transactions');
-    }, 1000);
+  const handleAddToTransactions = async () => {
+    if (extractedTransactions.length === 0) {
+      Toast.warn('⚠️ No transactions to add', 'top');
+      return;
+    }
+
+    setIsAddingToDatabase(true);
+
+    try {
+      console.log('💾 Saving transactions to database...');
+      console.log('📊 Transactions count:', extractedTransactions.length);
+      console.log('📊 Extracted transactions:', JSON.stringify(extractedTransactions, null, 2));
+
+      // Prepare transactions for backend
+      const transactionsToSave = extractedTransactions.map((txn, index) => {
+        console.log(`\n🔍 Preparing transaction ${index + 1}:`, {
+          name: txn.name,
+          amount: txn.amount,
+          type: txn.type,
+          category: txn.category
+        });
+
+        return {
+          name: txn.name,
+          description: txn.description || txn.name,
+          amount: Math.abs(txn.amount),
+          type: txn.type,
+          category: txn.category,
+          icon: txn.icon,
+          date: txn.date,
+          timestamp: txn.timestamp,
+          paymentMethod: txn.paymentMethod || 'other',
+          notes: '',
+          metadata: txn.metadata,
+          receipt: {
+            hasReceipt: true,
+            imageUri: receiptDocumentPath,
+            fileName: fileName,
+            fileSize: parseInt(fileSize) || 0,
+            scannedData: {
+              merchantName: merchantName,
+              totalAmount: Math.abs(txn.amount),
+              ocrConfidence: 0,
+              date: txn.date
+            }
+          }
+        };
+      });
+
+      console.log('📤 Transactions to save:', JSON.stringify(transactionsToSave, null, 2));
+
+      // Call API to save extracted transactions
+      const response = await saveExtractedTransactions(
+        transactionsToSave,
+        receiptDocumentPath,
+        merchantName
+      );
+
+      console.log('✅ Save Response:', response);
+
+      if (response.success) {
+        Toast.success(`✅ ${response.data.totalSaved} transaction(s) added successfully!`, 'top');
+        
+        // Navigate to transactions after a brief delay
+        setTimeout(() => {
+          router.push('/(tabs)/Transactions');
+        }, 1000);
+      } else {
+        throw new Error(response.message || 'Failed to save transactions');
+      }
+    } catch (error: any) {
+      console.error('❌ Save Transactions Error:', error);
+      Toast.error(`❌ ${error.response?.data?.message || 'Failed to add transactions. Please try again.'}`, 'top');
+    } finally {
+      setIsAddingToDatabase(false);
+    }
   };
 
   const TransactionItem = ({ item }: { item: any }) => (
@@ -209,68 +297,88 @@ const AfterDocUploadPage = () => {
     }
   };
 
-  const handleScanDocument = () => {
+  const handleScanDocument = async () => {
     setIsProcessing(true);
 
-    // Simulate document processing with OCR/text recognition
-    setTimeout(() => {
+    try {
+      console.log('📄 Starting PDF scan...');
+      console.log('📄 Document URI:', docUri);
+      console.log('📄 File name:', fileName);
+
+      // Call the PDF scanning API
+      const response = await scanReceiptPDF(docUri, fileName);
+      
+      console.log('✅ PDF Scan Response:', response);
+
+      if (response.success && response.data?.extractedTransactions) {
+        // Map backend transactions to frontend format
+        const transactions = response.data.extractedTransactions.map((txn: any, index: number) => ({
+          id: txn.id || `doc_${index + 1}`,
+          name: txn.name,
+          category: txn.category,
+          amount: txn.amount,
+          type: txn.type,
+          icon: getCategoryIcon(txn.category),
+          timestamp: formatTimestamp(txn.date || new Date()),
+          date: txn.date || new Date().toISOString(),
+          description: txn.description || txn.name,
+          paymentMethod: txn.paymentMethod || 'other',
+          metadata: {
+            merchantName: response.data.merchantName,
+            source: 'pdf_scan'
+          }
+        }));
+
+        setExtractedTransactions(transactions);
+        setMerchantName(response.data.merchantName || 'Unknown Merchant');
+        setReceiptDocumentPath(response.data.receiptDocument || '');
+        setShowTransactions(true);
+        
+        Toast.success(`🎉 PDF scanned! Found ${transactions.length} transaction(s)`, 'top');
+      } else {
+        throw new Error(response.message || 'Failed to extract transactions from PDF');
+      }
+    } catch (error: any) {
+      console.error('❌ PDF Scan Error:', error);
+      Toast.error(`❌ ${error.response?.data?.message || 'Failed to scan PDF. Please try again.'}`, 'top');
+    } finally {
       setIsProcessing(false);
-      
-      // Mock extracted transactions from document
-      const mockTransactions = [
-        {
-          id: 'doc_1',
-          name: 'Restaurant Bill',
-          category: 'Food & Dining',
-          amount: -850,
-          type: 'expense',
-          icon: '🍽️',
-          timestamp: new Date().toLocaleDateString('en-IN', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        },
-        {
-          id: 'doc_2',
-          name: 'Coffee',
-          category: 'Food & Dining',
-          amount: -150,
-          type: 'expense',
-          icon: '☕',
-          timestamp: new Date().toLocaleDateString('en-IN', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        },
-        {
-          id: 'doc_3',
-          name: 'Service Charge',
-          category: 'Others',
-          amount: -100,
-          type: 'expense',
-          icon: '💳',
-          timestamp: new Date().toLocaleDateString('en-IN', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        }
-      ];
-      
-      setExtractedTransactions(mockTransactions);
-      setShowTransactions(true);
-      
-      // Show success toast
-      Toast.success('🎉 Document scanned successfully! Data extracted.', 'top');
-    }, 2500);
+    }
+  };
+
+  // Helper function to get category icon
+  const getCategoryIcon = (category: string): string => {
+    const iconMap: { [key: string]: string } = {
+      'Food': '🍽️',
+      'Transport': '🚗',
+      'Shopping': '🛍️',
+      'Entertainment': '🎮',
+      'Bills': '📄',
+      'Health': '🏥',
+      'Education': '📚',
+      'Travel': '✈️',
+      'Groceries': '🛒',
+      'Rent': '🏠',
+      'Other': '💳',
+      'Salary': '💰',
+      'Business': '💼',
+      'Investment': '📈',
+      'Freelance': '💻',
+      'Gift': '🎁'
+    };
+    return iconMap[category] || '💳';
+  };
+
+  // Helper function to format timestamp
+  const formatTimestamp = (date: string | Date): string => {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleDateString('en-IN', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const handleRetake = async () => {
@@ -359,22 +467,27 @@ const AfterDocUploadPage = () => {
         ? {
             ...t,
             name: editForm.description,
+            description: editForm.description,
             category: editForm.selectedCategory.name,
             amount: editForm.type === 'income' ? parseFloat(editForm.amount) : -parseFloat(editForm.amount),
             type: editForm.type,
+            icon: getCategoryIcon(editForm.selectedCategory.name),
+            date: editForm.date.toISOString(),
             timestamp: editForm.date.toLocaleDateString('en-IN', { 
               day: '2-digit', 
               month: 'short', 
               year: 'numeric',
               hour: '2-digit',
               minute: '2-digit'
-            })
+            }),
+            paymentMethod: t.paymentMethod || 'other'
           }
         : t
     );
 
     setExtractedTransactions(updatedTransactions);
     setIsEditModalVisible(false);
+    setEditingTransaction(null);
     Toast.success('✅ Transaction updated successfully!', 'top');
   };
 
@@ -566,14 +679,26 @@ const AfterDocUploadPage = () => {
               {/* Add to Transactions Button */}
               <TouchableOpacity 
                 onPress={handleAddToTransactions}
-                className="bg-green-500 py-4 rounded-2xl items-center shadow-lg mt-4 mb-6"
+                disabled={isAddingToDatabase || extractedTransactions.length === 0}
+                className={`py-4 rounded-2xl items-center shadow-lg mt-4 mb-6 ${
+                  isAddingToDatabase || extractedTransactions.length === 0 ? 'bg-green-400' : 'bg-green-500'
+                }`}
               >
-                <View className="flex-row items-center">
-                  <Ionicons name="checkmark-circle-outline" size={24} color="white" />
-                  <Text className="text-white font-bold text-lg ml-2">
-                    Add {extractedTransactions.length} Transaction{extractedTransactions.length > 1 ? 's' : ''} to Main List
-                  </Text>
-                </View>
+                {isAddingToDatabase ? (
+                  <View className="flex-row items-center">
+                    <ActivityIndicator size="small" color="white" />
+                    <Text className="text-white font-bold text-lg ml-2">
+                      Adding to Database...
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="flex-row items-center">
+                    <Ionicons name="checkmark-circle-outline" size={24} color="white" />
+                    <Text className="text-white font-bold text-lg ml-2">
+                      Add {extractedTransactions.length} Transaction{extractedTransactions.length > 1 ? 's' : ''} to Main List
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           )}

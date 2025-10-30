@@ -541,7 +541,14 @@ exports.saveExtractedTransactions = async (req, res) => {
     const userId = req.user._id;
     const { transactions, receiptImage, merchantName } = req.body;
 
+    console.log('📥 Received save request:');
+    console.log('- User ID:', userId);
+    console.log('- Transactions count:', transactions?.length);
+    console.log('- Receipt Image:', receiptImage);
+    console.log('- Merchant Name:', merchantName);
+
     if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+      console.log('❌ No transactions provided or invalid format');
       return res.status(400).json({
         success: false,
         message: 'No transactions provided'
@@ -555,12 +562,54 @@ exports.saveExtractedTransactions = async (req, res) => {
     for (let i = 0; i < transactions.length; i++) {
       const txn = transactions[i];
       
+      console.log(`\n📝 Processing transaction ${i + 1}:`, {
+        name: txn.name,
+        amount: txn.amount,
+        type: txn.type,
+        category: txn.category
+      });
+      
       try {
         // Validate required fields
         if (!txn.name || !txn.amount || !txn.type || !txn.category) {
-          errors.push(`Transaction ${i + 1}: Missing required fields`);
+          const missingFields = [];
+          if (!txn.name) missingFields.push('name');
+          if (!txn.amount) missingFields.push('amount');
+          if (!txn.type) missingFields.push('type');
+          if (!txn.category) missingFields.push('category');
+          
+          console.log(`❌ Transaction ${i + 1} missing required fields:`, missingFields);
+          errors.push(`Transaction ${i + 1}: Missing required fields: ${missingFields.join(', ')}`);
           continue;
         }
+
+        // Map category to valid enum value
+        const categoryMapping = {
+          'Food': 'Food',
+          'Food & Dining': 'Food',
+          'Food & Drink': 'Food & Drink',
+          'Transport': 'Transport',
+          'Shopping': 'Shopping',
+          'Entertainment': 'Entertainment',
+          'Bills': 'Bills',
+          'Bills & Utilities': 'Bills & Utilities',
+          'Health': 'Health',
+          'Education': 'Education',
+          'Travel': 'Travel',
+          'Groceries': 'Groceries',
+          'Rent': 'Rent',
+          'Other': 'Other',
+          'Others': 'Others',
+          'Salary': 'Salary',
+          'Business': 'Business',
+          'Investment': 'Investment',
+          'Freelance': 'Freelance',
+          'Gift': 'Gift',
+          'Work': 'Work'
+        };
+
+        const validCategory = categoryMapping[txn.category] || 'Other';
+        console.log(`📌 Mapping category "${txn.category}" to "${validCategory}"`);
 
         // Create transaction matching Transaction model
         const transaction = await Transaction.create({
@@ -570,7 +619,7 @@ exports.saveExtractedTransactions = async (req, res) => {
           description: txn.description || txn.name || '',
           amount: Math.abs(parseFloat(txn.amount)),
           type: txn.type,
-          category: txn.category,
+          category: validCategory,
           
           // Display
           icon: txn.icon || 'ellipsis-horizontal-outline',
@@ -614,16 +663,26 @@ exports.saveExtractedTransactions = async (req, res) => {
         });
 
         savedTransactions.push(transaction);
+        console.log(`✅ Transaction ${i + 1} saved successfully with ID:`, transaction._id);
 
       } catch (txnError) {
-        console.error(`Error saving transaction ${i + 1}:`, txnError.message);
+        console.error(`❌ Error saving transaction ${i + 1}:`, txnError.message);
+        console.error('Transaction data:', txn);
         errors.push(`Transaction ${i + 1}: ${txnError.message}`);
       }
     }
 
     // Update user's income/expense totals
     if (savedTransactions.length > 0) {
+      console.log(`✅ Updating user financials for ${savedTransactions.length} transactions`);
       await updateUserFinancials(userId);
+    }
+
+    console.log(`\n📊 Save Summary:`);
+    console.log(`- Total Saved: ${savedTransactions.length}`);
+    console.log(`- Total Failed: ${errors.length}`);
+    if (errors.length > 0) {
+      console.log('- Errors:', errors);
     }
 
     res.status(201).json({

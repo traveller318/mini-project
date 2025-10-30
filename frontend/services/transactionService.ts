@@ -297,6 +297,38 @@ export const scanReceipt = async (imageUri: string): Promise<any> => {
 };
 
 /**
+ * Scan receipt PDF (upload PDF document)
+ */
+export const scanReceiptPDF = async (pdfUri: string, fileName: string): Promise<any> => {
+  try {
+    const url = `${API_ENDPOINTS.TRANSACTIONS}/scan-receipt-pdf`;
+    console.log("🔵 Scanning PDF receipt at:", url);
+
+    // Create form data for PDF upload
+    const formData = new FormData();
+    
+    formData.append("receipt", {
+      uri: pdfUri,
+      name: fileName || "receipt.pdf",
+      type: "application/pdf",
+    } as any);
+
+    const response = await axiosInstance.post(url, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      timeout: 90000, // 90 seconds for PDF processing
+    });
+
+    console.log("✅ PDF receipt scanned successfully");
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Scan PDF receipt error:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
  * Save extracted transactions from receipt scanning
  */
 export const saveExtractedTransactions = async (
@@ -330,5 +362,6 @@ export default {
   updateTransaction,
   deleteTransaction,
   scanReceipt,
+  scanReceiptPDF,
   saveExtractedTransactions,
 };
