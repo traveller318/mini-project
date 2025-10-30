@@ -33,8 +33,16 @@ export default function VoiceAgent() {
   const [transcription, setTranscription] = useState<string | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   
-  // Initialize audio recorder with high quality settings
-  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Initialize audio recorder with WAV format (supported by Gemini)
+  // Using custom recording options to force WAV format
+  const recordingOptions = {
+    ...RecordingPresets.HIGH_QUALITY,
+    extension: '.wav',
+    outputFormat: 'wav',
+    audioEncoder: 'lpcm', // Linear PCM for WAV
+  };
+  
+  const audioRecorder = useAudioRecorder(recordingOptions);
   const recorderState = useAudioRecorderState(audioRecorder);
   
   // Initialize audio player for playback

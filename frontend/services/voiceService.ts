@@ -54,32 +54,38 @@ export const processVoiceRecording = async (
     const formData = new FormData();
     
     // Determine file extension and MIME type based on URI
-    let fileName = 'recording.m4a';
-    let mimeType = 'audio/mp4';
+    // Prioritize WAV format as it's supported by Gemini
+    let fileName = 'recording.wav';
+    let mimeType = 'audio/wav';
     
-    if (audioUri.includes('.m4a') || audioUri.includes('.caf')) {
-      // iOS typically uses .caf or .m4a format
-      fileName = `recording_${Date.now()}.m4a`;
-      mimeType = 'audio/mp4';
-    } else if (audioUri.includes('.wav')) {
+    if (audioUri.includes('.wav')) {
+      // WAV format (preferred for Gemini AI)
       fileName = `recording_${Date.now()}.wav`;
       mimeType = 'audio/wav';
     } else if (audioUri.includes('.mp3')) {
       fileName = `recording_${Date.now()}.mp3`;
       mimeType = 'audio/mpeg';
-    } else if (audioUri.includes('.aac')) {
-      fileName = `recording_${Date.now()}.aac`;
-      mimeType = 'audio/aac';
     } else if (audioUri.includes('.webm')) {
       fileName = `recording_${Date.now()}.webm`;
       mimeType = 'audio/webm';
-    } else {
-      // Default to m4a for unknown formats (common on mobile)
+    } else if (audioUri.includes('.ogg')) {
+      fileName = `recording_${Date.now()}.ogg`;
+      mimeType = 'audio/ogg';
+    } else if (audioUri.includes('.m4a') || audioUri.includes('.caf')) {
+      // iOS formats (m4a not supported by Gemini, but keep as fallback)
       fileName = `recording_${Date.now()}.m4a`;
       mimeType = 'audio/mp4';
+      console.warn('⚠️ M4A format may not be supported by Gemini AI. Consider using WAV.');
+    } else if (audioUri.includes('.aac')) {
+      fileName = `recording_${Date.now()}.aac`;
+      mimeType = 'audio/aac';
+    } else {
+      // Default to WAV for unknown formats
+      fileName = `recording_${Date.now()}.wav`;
+      mimeType = 'audio/wav';
     }
 
-    console.log('📁 File details:', { fileName, mimeType });
+    console.log('📁 File details:', { fileName, mimeType, audioUri });
 
     // Append audio file
     formData.append('voiceRecording', {
