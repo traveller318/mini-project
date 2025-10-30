@@ -142,26 +142,42 @@ exports.createSubscription = async (req, res) => {
       });
     }
 
-    // Calculate next due date
-    const nextDueDate = calculateNextDueDate(new Date(dueDate), frequency);
+    // Validate dueDate format
+    const dueDateObj = new Date(dueDate);
+    if (isNaN(dueDateObj.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid due date format. Please use YYYY-MM-DD format.'
+      });
+    }
 
-    // Create subscription
-    const subscription = await Subscription.create({
+    // Calculate next due date
+    const nextDueDate = calculateNextDueDate(dueDateObj, frequency);
+
+    // Create subscription data object
+    const subscriptionData = {
       userId,
       name,
       description: description || '',
       category,
       amount,
       frequency,
-      startDate: startDate || new Date(),
-      endDate: endDate || null,
-      dueDate: new Date(dueDate),
-      nextDueDate,
+      startDate: startDate ? new Date(startDate) : new Date(),
+      endDate: endDate ? new Date(endDate) : null,
+      dueDate: dueDateObj,
       icon: icon || 'ellipsis-horizontal',
       logo: logo || name.charAt(0).toLowerCase(),
       color: color || '#3B82F6',
       status: 'active'
-    });
+    };
+
+    // Only add nextDueDate if it's valid
+    if (nextDueDate) {
+      subscriptionData.nextDueDate = nextDueDate;
+    }
+
+    // Create subscription
+    const subscription = await Subscription.create(subscriptionData);
 
     res.status(201).json({
       success: true,
@@ -186,7 +202,58 @@ exports.updateSubscription = async (req, res) => {
   try {
     const userId = req.user._id;
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+
+    // If dueDate or frequency is updated, recalculate nextDueDate
+    if (updateData.dueDate || updateData.frequency) {
+      const subscription = await Subscription.findOne({ _id: id, userId });
+      
+      if (!subscription) {
+        return res.status(404).json({
+          success: false,
+          message: 'Subscription not found'
+        });
+      }
+
+      const dueDate = updateData.dueDate ? new Date(updateData.dueDate) : subscription.dueDate;
+      const frequency = updateData.frequency || subscription.frequency;
+      
+      // Validate dueDate
+      if (isNaN(dueDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid due date format'
+        });
+      }
+
+      const nextDueDate = calculateNextDueDate(dueDate, frequency);
+      if (nextDueDate) {
+        updateData.nextDueDate = nextDueDate;
+      }
+    }
+
+    // Validate and convert dates if present
+    if (updateData.startDate) {
+      const startDate = new Date(updateData.startDate);
+      if (isNaN(startDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid start date format'
+        });
+      }
+      updateData.startDate = startDate;
+    }
+
+    if (updateData.endDate) {
+      const endDate = new Date(updateData.endDate);
+      if (isNaN(endDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid end date format'
+        });
+      }
+      updateData.endDate = endDate;
+    }
 
     const subscription = await Subscription.findOneAndUpdate(
       { _id: id, userId },
@@ -368,7 +435,19 @@ exports.getCalendarData = async (req, res) => {
 // HELPER FUNCTION: CALCULATE NEXT DUE DATE
 // ============================================
 function calculateNextDueDate(currentDate, frequency) {
+  // Validate input date
+  if (!currentDate || isNaN(new Date(currentDate).getTime())) {
+    console.error('Invalid date provided to calculateNextDueDate:', currentDate);
+    return null;
+  }
+
   const nextDate = new Date(currentDate);
+  
+  // Validate that we got a valid date object
+  if (isNaN(nextDate.getTime())) {
+    console.error('Unable to create valid date from:', currentDate);
+    return null;
+  }
   
   switch (frequency) {
     case 'daily':
@@ -388,6 +467,12 @@ function calculateNextDueDate(currentDate, frequency) {
       break;
     default:
       nextDate.setMonth(nextDate.getMonth() + 1);
+  }
+  
+  // Validate the calculated date
+  if (isNaN(nextDate.getTime())) {
+    console.error('Calculated date is invalid:', nextDate);
+    return null;
   }
   
   return nextDate;

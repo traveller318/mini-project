@@ -295,7 +295,7 @@ const Dashboard = () => {
       <View className="mb-6">
         <View className="flex-row justify-between items-center px-4 mb-3">
           <Text className="text-gray-800 text-lg font-semibold">Upcoming Bills & Subscriptions</Text>
-          <TouchableOpacity onPress={() => router.push('/(recommander)')}>
+          <TouchableOpacity onPress={() => router.push('/(subscription)')}>
             <Text className="text-blue-600 text-sm font-medium">View All</Text>
           </TouchableOpacity>
         </View>
