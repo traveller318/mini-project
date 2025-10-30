@@ -153,7 +153,12 @@ const uploadVoiceRecording = multer({
       'audio/wav',
       'audio/webm',
       'audio/ogg',
-      'audio/m4a'
+      'audio/m4a',
+      'audio/mp4',      // m4a files often have this MIME type
+      'audio/x-m4a',    // Alternative MIME type for m4a
+      'audio/aac',      // AAC audio format
+      'audio/3gpp',     // 3GP audio (mobile)
+      'audio/3gpp2'     // 3GP2 audio (mobile)
     ];
     
     if (allowedMimes.includes(file.mimetype)) {

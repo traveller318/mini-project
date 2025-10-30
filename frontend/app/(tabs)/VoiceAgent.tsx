@@ -6,7 +6,8 @@ import {
   Animated, 
   Alert,
   Dimensions,
-  ScrollView 
+  ScrollView,
+  ActivityIndicator 
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,12 +21,17 @@ import {
   requestRecordingPermissionsAsync
 } from 'expo-audio';
 import LottieView from 'lottie-react-native';
+import { processVoiceRecording, handleQuickQuestion } from '../../services/voiceService';
 
 const { width, height } = Dimensions.get('window');
 
 export default function VoiceAgent() {
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [transcription, setTranscription] = useState<string | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
   
   // Initialize audio recorder with high quality settings
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -39,6 +45,7 @@ export default function VoiceAgent() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const lottieRef = useRef<LottieView>(null);
+  const recordingStartTime = useRef<number>(0);
 
   // Pulse animation for microphone
   const startPulseAnimation = () => {
@@ -101,6 +108,10 @@ export default function VoiceAgent() {
         return;
       }
 
+      // Reset previous responses
+      setAiResponse(null);
+      setTranscription(null);
+
       // Set audio mode for recording
       await setAudioModeAsync({
         allowsRecording: true,
@@ -108,6 +119,7 @@ export default function VoiceAgent() {
       });
 
       console.log('Starting recording..');
+      recordingStartTime.current = Date.now();
       await audioRecorder.prepareToRecordAsync();
       audioRecorder.record();
       
@@ -144,26 +156,60 @@ export default function VoiceAgent() {
       const uri = audioRecorder.uri;
       console.log('Recording stopped and stored at', uri);
       
+      // Calculate recording duration
+      const duration = (Date.now() - recordingStartTime.current) / 1000;
+      setRecordingDuration(duration);
+      
       if (uri) {
         setRecordingUri(uri);
+        
+        // Reset audio mode
+        await setAudioModeAsync({
+          allowsRecording: false,
+        });
+        
+        // Process the recording with AI
+        await processRecordingWithAI(uri, duration);
+      } else {
+        throw new Error('No recording URI');
       }
       
-      // Reset audio mode
-      await setAudioModeAsync({
-        allowsRecording: false,
-      });
-      
-      // Show success notification
-      Alert.alert('Success', 'Recording captured successfully!');
-      
-      // Simulate AI processing
-      setTimeout(() => {
-        Alert.alert('Processing', 'AI is processing your request...');
-      }, 1000);
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to stop recording', error);
-      Alert.alert('Error', 'Failed to stop recording');
+      Alert.alert('Error', error.message || 'Failed to stop recording');
+    }
+  };
+
+  const processRecordingWithAI = async (uri: string, duration: number) => {
+    try {
+      setIsProcessing(true);
+      console.log('🤖 Processing with AI...');
+
+      // Call the voice service
+      const response = await processVoiceRecording(uri, duration);
+
+      console.log('✅ AI Response received:', response.data);
+
+      // Update UI with results
+      setTranscription(response.data.transcription);
+      setAiResponse(response.data.response);
+
+      // Show success with response
+      Alert.alert(
+        'AI Response',
+        response.data.response,
+        [{ text: 'OK', onPress: () => console.log('User acknowledged response') }]
+      );
+
+    } catch (error: any) {
+      console.error('❌ AI Processing error:', error);
+      Alert.alert(
+        'Processing Error',
+        error.message || 'Failed to process your voice request. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -196,19 +242,39 @@ export default function VoiceAgent() {
     }
   };
 
-  const handleSpendingReport = () => {
-    Alert.alert('Info', 'Generating spending report...');
-    // Navigate to spending report or trigger action
-  };
+  const handleQuickQuestionPress = async (question: string) => {
+    try {
+      setIsProcessing(true);
+      setAiResponse(null);
+      setTranscription(question);
 
-  const handleSetBudget = () => {
-    Alert.alert('Info', 'Opening budget settings...');
-    // Navigate to budget settings or trigger action
-  };
+      console.log('⚡ Processing quick question:', question);
 
-  const handleQuestion = (question: string) => {
-    Alert.alert('Question', `You asked: "${question}"`);
-    // Handle the specific question
+      // Call the quick question API
+      const response = await handleQuickQuestion(question);
+
+      console.log('✅ Quick question response:', response.data);
+
+      // Update UI with results
+      setAiResponse(response.data.response);
+
+      // Show response
+      Alert.alert(
+        'AI Response',
+        response.data.response,
+        [{ text: 'OK' }]
+      );
+
+    } catch (error: any) {
+      console.error('❌ Quick question error:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to process your question. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   useEffect(() => {
@@ -251,7 +317,8 @@ export default function VoiceAgent() {
               {quickQuestions.map((question, index) => (
                 <TouchableOpacity
                   key={index}
-                  onPress={() => handleQuestion(question)}
+                  onPress={() => handleQuickQuestionPress(question)}
+                  disabled={isProcessing}
                   style={{
                     backgroundColor: '#ffffff',
                     borderRadius: 20,
@@ -278,6 +345,34 @@ export default function VoiceAgent() {
             </View>
           </View>
 
+          {/* AI Response Display */}
+          {(aiResponse || transcription) && (
+            <View className="mb-8 bg-white rounded-3xl p-6 shadow-lg mx-4">
+              {transcription && (
+                <View className="mb-4">
+                  <Text className="text-sm font-semibold text-gray-500 mb-2">You said:</Text>
+                  <Text className="text-base text-gray-700 italic">"{transcription}"</Text>
+                </View>
+              )}
+              {aiResponse && (
+                <View>
+                  <Text className="text-sm font-semibold text-gray-500 mb-2">AI Response:</Text>
+                  <Text className="text-base text-gray-800 leading-6">{aiResponse}</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Processing Indicator */}
+          {isProcessing && (
+            <View className="mb-8 bg-white rounded-3xl p-6 shadow-lg mx-4">
+              <View className="flex-row items-center justify-center">
+                <ActivityIndicator size="small" color="#0ea5e9" />
+                <Text className="ml-3 text-base text-gray-600">Processing your request...</Text>
+              </View>
+            </View>
+          )}
+
           {/* Main Voice Interface */}
           <View className="items-center justify-center">
           
@@ -299,7 +394,9 @@ export default function VoiceAgent() {
 
           {/* Status Text */}
           <Text className="text-base text-gray-600 text-center mx-8 leading-6 mb-8">
-            {recorderState.isRecording 
+            {isProcessing
+              ? "AI is analyzing your request..."
+              : recorderState.isRecording 
               ? "Recording your voice... Tap the button again to stop"
               : "Or ask me anything by tapping the microphone below"
             }
@@ -336,11 +433,12 @@ export default function VoiceAgent() {
             >
               <TouchableOpacity
                 onPress={handleMicPress}
+                disabled={isProcessing}
                 style={{
                   width: 70,
                   height: 70,
                   borderRadius: 35,
-                  backgroundColor: recorderState.isRecording ? '#ef4444' : '#ffffff',
+                  backgroundColor: recorderState.isRecording ? '#ef4444' : isProcessing ? '#cbd5e1' : '#ffffff',
                   justifyContent: 'center',
                   alignItems: 'center',
                   shadowColor: '#000',
@@ -351,14 +449,19 @@ export default function VoiceAgent() {
                   shadowOpacity: 0.2,
                   shadowRadius: 8,
                   elevation: 8,
+                  opacity: isProcessing ? 0.6 : 1,
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons 
-                  name={recorderState.isRecording ? "stop" : "mic"} 
-                  size={28} 
-                  color={recorderState.isRecording ? '#ffffff' : '#0ea5e9'} 
-                />
+                {isProcessing ? (
+                  <ActivityIndicator size="small" color="#0ea5e9" />
+                ) : (
+                  <Ionicons 
+                    name={recorderState.isRecording ? "stop" : "mic"} 
+                    size={28} 
+                    color={recorderState.isRecording ? '#ffffff' : '#0ea5e9'} 
+                  />
+                )}
               </TouchableOpacity>
             </Animated.View>
           </View>
