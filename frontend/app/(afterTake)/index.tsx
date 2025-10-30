@@ -18,6 +18,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Toast } from 'toastify-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { scanReceipt, saveExtractedTransactions } from '@/services/transactionService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,6 +57,9 @@ const AfterImageClickedPage = () => {
   const [showTransactions, setShowTransactions] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [receiptImage, setReceiptImage] = useState<string>('');
+  const [merchantName, setMerchantName] = useState<string>('');
+  const [isAddingToDatabase, setIsAddingToDatabase] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -130,22 +134,92 @@ const AfterImageClickedPage = () => {
   };
 
   const handleDeleteTransaction = (transactionId: string) => {
-    setExtractedTransactions(prev => prev.filter(t => t.id !== transactionId));
-    Toast.success('🗑️ Transaction removed', 'top');
+    Alert.alert(
+      'Delete Transaction',
+      'Are you sure you want to remove this transaction?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setExtractedTransactions(prev => prev.filter(t => t.id !== transactionId));
+            Toast.success('🗑️ Transaction removed', 'top');
+          }
+        }
+      ]
+    );
   };
 
-  const handleAddToTransactions = () => {
-    // TODO: Implement saving to main transactions
-    Toast.success('✅ Transactions added successfully!', 'top');
-    
-    // Navigate to transactions after a brief delay
-    setTimeout(() => {
-      router.push('/(tabs)/Transactions');
-    }, 1000);
+  const handleAddToTransactions = async () => {
+    if (extractedTransactions.length === 0) {
+      Toast.error('❌ No transactions to add', 'top');
+      return;
+    }
+
+    try {
+      setIsAddingToDatabase(true);
+      
+      // Format transactions for the backend
+      const formattedTransactions = extractedTransactions.map(txn => ({
+        name: txn.name,
+        description: txn.description || txn.name,
+        amount: Math.abs(txn.amount),
+        type: txn.type,
+        category: txn.category,
+        icon: txn.icon || 'ellipsis-horizontal-outline',
+        color: txn.color || '#6B7280',
+        date: txn.date || new Date().toISOString(),
+        timestamp: txn.timestamp || new Date().toISOString(),
+        paymentMethod: txn.paymentMethod || 'other',
+        notes: txn.notes || '',
+        metadata: {
+          source: 'scanned',
+          merchantName: merchantName || 'Unknown',
+          ...txn.metadata
+        },
+        receipt: {
+          hasReceipt: true,
+          imageUri: receiptImage,
+          fileName: fileName || '',
+          fileSize: fileSize ? parseInt(fileSize) : 0,
+          scannedData: {
+            merchantName: merchantName || 'Unknown',
+            totalAmount: Math.abs(txn.amount),
+            ocrConfidence: txn.ocrConfidence || 0,
+            date: txn.date || new Date().toISOString()
+          }
+        }
+      }));
+
+      console.log('📤 Saving transactions to database...', formattedTransactions);
+
+      const response = await saveExtractedTransactions(
+        formattedTransactions,
+        receiptImage,
+        merchantName
+      );
+
+      if (response.success) {
+        Toast.success(`✅ ${response.data.totalSaved} transaction(s) added successfully!`, 'top');
+        
+        // Navigate to transactions after a brief delay
+        setTimeout(() => {
+          router.push('/(tabs)/Transactions');
+        }, 1000);
+      } else {
+        throw new Error(response.message || 'Failed to save transactions');
+      }
+    } catch (error: any) {
+      console.error('❌ Error saving transactions:', error);
+      Toast.error(`❌ ${error.response?.data?.message || 'Failed to save transactions'}`, 'top');
+    } finally {
+      setIsAddingToDatabase(false);
+    }
   };
 
   const TransactionItem = ({ item }: { item: any }) => (
-    <View className="bg-white mx-4 mb-3 p-5 rounded-2xl shadow-sm border border-gray-50">
+    <View className="bg-white mb-3 p-5 rounded-2xl shadow-sm border border-gray-50">
       {/* Action Icons - Top Right */}
       <View className="absolute top-2 right-2 flex-row items-center z-10">
         <TouchableOpacity 
@@ -153,25 +227,25 @@ const AfterImageClickedPage = () => {
           className="w-8 h-8 bg-blue-50 rounded-full items-center justify-center mr-2"
           activeOpacity={0.7}
         >
-          <Text className="text-sm">✏️</Text>
+          <Ionicons name="pencil" size={14} color="#3B82F6" />
         </TouchableOpacity>
         <TouchableOpacity 
           onPress={() => handleDeleteTransaction(item.id)}
           className="w-8 h-8 bg-red-50 rounded-full items-center justify-center"
           activeOpacity={0.7}
         >
-          <Text className="text-sm">🗑️</Text>
+          <Ionicons name="trash" size={14} color="#EF4444" />
         </TouchableOpacity>
       </View>
 
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center flex-1">
           <View className="w-14 h-14 bg-gray-100 rounded-full items-center justify-center mr-4">
-            <Text className="text-xl">{item.icon}</Text>
+            <Ionicons name={item.icon as any} size={24} color="#374151" />
           </View>
           <View className="flex-1 pr-16">
             <Text className="font-semibold text-gray-800 text-base">{item.name}</Text>
-            <Text className="text-gray-500 text-sm">{item.timestamp}</Text>
+            <Text className="text-gray-500 text-sm">{formatTransactionDate(item.date || item.timestamp)}</Text>
           </View>
         </View>
         <View className="items-end mt-6">
@@ -186,68 +260,118 @@ const AfterImageClickedPage = () => {
     </View>
   );
 
-  const handleScanImage = () => {
+  const formatTransactionDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const transactionDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      
+      const diffTime = today.getTime() - transactionDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      const timeStr = date.toLocaleTimeString('en-IN', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      
+      if (diffDays === 0) {
+        return `Today at ${timeStr}`;
+      } else if (diffDays === 1) {
+        return `Yesterday at ${timeStr}`;
+      } else if (diffDays < 7) {
+        return `${date.toLocaleDateString('en-IN', { weekday: 'short' })} at ${timeStr}`;
+      } else {
+        return date.toLocaleDateString('en-IN', { 
+          day: '2-digit', 
+          month: 'short',
+          year: 'numeric'
+        });
+      }
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  const handleScanImage = async () => {
+    if (!imageUri) {
+      Toast.error('❌ No image to scan', 'top');
+      return;
+    }
+
     setIsProcessing(true);
 
-    // Simulate image processing with OCR/text recognition
-    setTimeout(() => {
-      setIsProcessing(false);
-      
-      // Mock extracted transactions from receipt
-      const mockTransactions = [
-        {
-          id: 'ext_1',
-          name: 'Grocery Store',
-          category: 'Groceries',
-          amount: -1250,
-          type: 'expense',
-          icon: '🛒',
-          timestamp: new Date().toLocaleDateString('en-IN', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        },
-        {
-          id: 'ext_2',
-          name: 'Vegetables',
-          category: 'Groceries',
-          amount: -450,
-          type: 'expense',
-          icon: '🥬',
-          timestamp: new Date().toLocaleDateString('en-IN', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        },
-        {
-          id: 'ext_3',
-          name: 'Dairy Products',
-          category: 'Groceries',
-          amount: -320,
-          type: 'expense',
-          icon: '🥛',
-          timestamp: new Date().toLocaleDateString('en-IN', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
+    try {
+      console.log('📸 Starting receipt scan...');
+      Toast.info('🔍 Scanning receipt...', 'top');
+
+      // Call the backend API to scan the receipt
+      const response = await scanReceipt(imageUri);
+
+      console.log('📥 Scan response:', response);
+
+      if (response.success && response.data?.extractedTransactions) {
+        const { extractedTransactions, receiptImage: imgPath, merchantName: merchant } = response.data;
+
+        // Store receipt info
+        setReceiptImage(imgPath || imageUri);
+        setMerchantName(merchant || 'Unknown Merchant');
+
+        // Format transactions for display
+        const formattedTransactions = extractedTransactions.map((txn: any, index: number) => ({
+          id: `ext_${Date.now()}_${index}`,
+          name: txn.name || txn.description || 'Unknown Item',
+          description: txn.description || txn.name,
+          category: txn.category || 'Other',
+          amount: txn.amount || 0,
+          type: txn.type || 'expense',
+          icon: txn.icon || 'ellipsis-horizontal-outline',
+          color: txn.color || '#6B7280',
+          date: txn.date || new Date().toISOString(),
+          timestamp: txn.timestamp || new Date().toISOString(),
+          paymentMethod: txn.paymentMethod || 'other',
+          notes: txn.notes || '',
+          ocrConfidence: response.data.ocrConfidence || 0,
+          metadata: {
+            merchantName: merchant || 'Unknown',
+            totalAmount: response.data.totalAmount || 0,
+            ...txn.metadata
+          }
+        }));
+
+        setExtractedTransactions(formattedTransactions);
+        setShowTransactions(true);
+        
+        // Show success message
+        Toast.success(`🎉 Receipt scanned! Found ${formattedTransactions.length} transaction(s)`, 'top');
+        
+        // Show warnings if any
+        if (response.data.warnings && response.data.warnings.length > 0) {
+          setTimeout(() => {
+            Toast.warn(`⚠️ ${response.data.warnings[0]}`, 'top');
+          }, 1500);
         }
-      ];
+      } else {
+        throw new Error(response.message || 'Failed to extract transactions from receipt');
+      }
+    } catch (error: any) {
+      console.error('❌ Scan error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to scan receipt';
+      Toast.error(`❌ ${errorMessage}`, 'top');
       
-      setExtractedTransactions(mockTransactions);
-      setShowTransactions(true);
-      
-      // Show success toast
-      Toast.success('🎉 Receipt scanned successfully! Data extracted.', 'top');
-    }, 2500);
+      // If scan fails, offer to retry or go back
+      Alert.alert(
+        'Scan Failed',
+        'Unable to extract data from the receipt. The image may be unclear or the receipt format is not supported.',
+        [
+          { text: 'Try Again', onPress: () => handleScanImage() },
+          { text: 'Retake Photo', onPress: () => router.back() }
+        ]
+      );
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleBack = () => {
@@ -305,22 +429,25 @@ const AfterImageClickedPage = () => {
         ? {
             ...t,
             name: editForm.description,
+            description: editForm.description,
             category: editForm.selectedCategory.name,
-            amount: editForm.type === 'income' ? parseFloat(editForm.amount) : -parseFloat(editForm.amount),
+            icon: editForm.selectedCategory.icon,
+            amount: parseFloat(editForm.amount),
             type: editForm.type,
-            timestamp: editForm.date.toLocaleDateString('en-IN', { 
-              day: '2-digit', 
-              month: 'short', 
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })
+            date: editForm.date.toISOString(),
+            timestamp: editForm.date.toISOString(),
+            isRecurring: editForm.isRecurring,
+            recurringDetails: editForm.isRecurring ? {
+              frequency: editForm.frequency,
+              startDate: editForm.date.toISOString()
+            } : null
           }
         : t
     );
 
     setExtractedTransactions(updatedTransactions);
     setIsEditModalVisible(false);
+    setEditingTransaction(null);
     Toast.success('✅ Transaction updated successfully!', 'top');
   };
 
@@ -418,76 +545,7 @@ const AfterImageClickedPage = () => {
         </View>
 
         {/* Editing Tools */}
-        <View className="px-6 mt-6">
-          <Text className="text-gray-800 text-lg font-bold mb-4">Editing Tools</Text>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            className="mb-6"
-          >
-            <EditingTool
-              icon="crop"
-              label="Crop"
-              isSelected={selectedTool === 'crop'}
-              onPress={() => handleToolSelect('crop')}
-            />
-            <EditingTool
-              icon="color-filter"
-              label="Filter"
-              isSelected={selectedTool === 'filter'}
-              onPress={() => handleToolSelect('filter')}
-            />
-            <EditingTool
-              icon="sunny"
-              label="Brightness"
-              isSelected={selectedTool === 'brightness'}
-              onPress={() => handleToolSelect('brightness')}
-            />
-            <EditingTool
-              icon="contrast"
-              label="Contrast"
-              isSelected={selectedTool === 'contrast'}
-              onPress={() => handleToolSelect('contrast')}
-            />
-            <EditingTool
-              icon="refresh-outline"
-              label="Rotate"
-              isSelected={selectedTool === 'rotate'}
-              onPress={() => handleToolSelect('rotate')}
-            />
-            <EditingTool
-              icon="text"
-              label="Text"
-              isSelected={selectedTool === 'text'}
-              onPress={() => handleToolSelect('text')}
-            />
-          </ScrollView>
-
-          {/* Tool Options */}
-          {selectedTool && (
-            <View className="bg-white rounded-2xl p-4 shadow-lg mb-6">
-              <Text className="text-gray-700 font-semibold mb-3 capitalize">
-                {selectedTool} Options
-              </Text>
-              <View className="items-center">
-                <Text className="text-gray-500 text-sm">
-                  {selectedTool === 'crop' && 'Drag corners to crop the image'}
-                  {selectedTool === 'filter' && 'Apply filters to enhance your image'}
-                  {selectedTool === 'brightness' && 'Adjust image brightness'}
-                  {selectedTool === 'contrast' && 'Modify image contrast'}
-                  {selectedTool === 'rotate' && 'Rotate image by 90° increments'}
-                  {selectedTool === 'text' && 'Add text annotations to your image'}
-                </Text>
-                <TouchableOpacity 
-                  onPress={() => setSelectedTool(null)}
-                  className="mt-3 bg-blue-500 px-4 py-2 rounded-lg"
-                >
-                  <Text className="text-white text-sm font-medium">Apply</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </View>
+       
 
         {/* Action Buttons */}
         <View className="px-6 mt-4">
@@ -578,14 +636,26 @@ const AfterImageClickedPage = () => {
             {/* Add to Transactions Button */}
             <TouchableOpacity 
               onPress={handleAddToTransactions}
-              className="bg-green-500 py-4 rounded-2xl items-center shadow-lg mt-4 mb-6"
+              disabled={isAddingToDatabase || extractedTransactions.length === 0}
+              className={`py-4 rounded-2xl items-center shadow-lg mt-4 mb-6 ${
+                isAddingToDatabase || extractedTransactions.length === 0 ? 'bg-green-400' : 'bg-green-500'
+              }`}
             >
-              <View className="flex-row items-center">
-                <Ionicons name="checkmark-circle-outline" size={24} color="white" />
-                <Text className="text-white font-bold text-lg ml-2">
-                  Add {extractedTransactions.length} Transaction{extractedTransactions.length > 1 ? 's' : ''} to Main List
-                </Text>
-              </View>
+              {isAddingToDatabase ? (
+                <View className="flex-row items-center">
+                  <ActivityIndicator size="small" color="white" />
+                  <Text className="text-white font-bold text-lg ml-2">
+                    Saving...
+                  </Text>
+                </View>
+              ) : (
+                <View className="flex-row items-center">
+                  <Ionicons name="checkmark-circle-outline" size={24} color="white" />
+                  <Text className="text-white font-bold text-lg ml-2">
+                    Add {extractedTransactions.length} Transaction{extractedTransactions.length > 1 ? 's' : ''} to Main List
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         )}

@@ -264,7 +264,7 @@ export const deleteTransaction = async (
 /**
  * Scan receipt (upload image)
  */
-export const scanReceipt = async (imageUri: string): Promise<TransactionResponse> => {
+export const scanReceipt = async (imageUri: string): Promise<any> => {
   try {
     const url = `${API_ENDPOINTS.TRANSACTIONS}/scan-receipt`;
     console.log("🔵 Scanning receipt at:", url);
@@ -285,12 +285,40 @@ export const scanReceipt = async (imageUri: string): Promise<TransactionResponse
       headers: {
         "Content-Type": "multipart/form-data",
       },
+      timeout: 60000, // 60 seconds for OCR processing
     });
 
     console.log("✅ Receipt scanned successfully");
     return response.data;
   } catch (error: any) {
     console.error("❌ Scan receipt error:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Save extracted transactions from receipt scanning
+ */
+export const saveExtractedTransactions = async (
+  transactions: any[],
+  receiptImage?: string,
+  merchantName?: string
+): Promise<any> => {
+  try {
+    const url = `${API_ENDPOINTS.TRANSACTIONS}/save-extracted`;
+    console.log("🔵 Saving extracted transactions at:", url);
+    console.log("🔵 Transactions to save:", transactions.length);
+
+    const response = await axiosInstance.post(url, {
+      transactions,
+      receiptImage,
+      merchantName,
+    });
+
+    console.log("✅ Transactions saved successfully");
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Save transactions error:", error.response?.data || error.message);
     throw error;
   }
 };
@@ -302,4 +330,5 @@ export default {
   updateTransaction,
   deleteTransaction,
   scanReceipt,
+  saveExtractedTransactions,
 };
