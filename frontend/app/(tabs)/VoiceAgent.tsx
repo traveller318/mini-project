@@ -10,19 +10,30 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { 
+  useAudioRecorder, 
+  useAudioRecorderState,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  RecordingPresets,
+  setAudioModeAsync,
+  requestRecordingPermissionsAsync
+} from 'expo-audio';
 import LottieView from 'lottie-react-native';
 
 const { width, height } = Dimensions.get('window');
 
 export default function VoiceAgent() {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [permissionResponse, requestPermission] = Audio.usePermissions();
+  
+  // Initialize audio recorder with high quality settings
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(audioRecorder);
+  
+  // Initialize audio player for playback
+  const audioPlayer = useAudioPlayer(recordingUri || null);
+  const playerStatus = useAudioPlayerStatus(audioPlayer);
   
   // Animation references
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -82,24 +93,23 @@ export default function VoiceAgent() {
 
   const startRecording = async () => {
     try {
-      if (permissionResponse?.status !== 'granted') {
-        console.log('Requesting permission..');
-        await requestPermission();
+      // Request recording permissions
+      const { granted } = await requestRecordingPermissionsAsync();
+      
+      if (!granted) {
+        Alert.alert('Permission Denied', 'Permission to access microphone was denied');
+        return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      // Set audio mode for recording
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
       console.log('Starting recording..');
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      
-      setRecording(recording);
-      setIsRecording(true);
-      setIsListening(true);
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
       
       // Start animations
       startPulseAnimation();
@@ -120,11 +130,6 @@ export default function VoiceAgent() {
   const stopRecording = async () => {
     console.log('Stopping recording..');
     
-    if (!recording) return;
-    
-    setIsRecording(false);
-    setIsListening(false);
-    
     // Stop animations
     stopAnimations();
     
@@ -134,25 +139,24 @@ export default function VoiceAgent() {
     }
     
     try {
-      const uri = recording.getURI();
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-      });
+      await audioRecorder.stop();
       
+      const uri = audioRecorder.uri;
       console.log('Recording stopped and stored at', uri);
       
       if (uri) {
         setRecordingUri(uri);
       }
       
-      // Clear recording reference immediately after unloading
-      setRecording(null);
+      // Reset audio mode
+      await setAudioModeAsync({
+        allowsRecording: false,
+      });
       
       // Show success notification
       Alert.alert('Success', 'Recording captured successfully!');
       
-      // Simulate AI processing (you can replace this with actual AI integration)
+      // Simulate AI processing
       setTimeout(() => {
         Alert.alert('Processing', 'AI is processing your request...');
       }, 1000);
@@ -160,51 +164,35 @@ export default function VoiceAgent() {
     } catch (error) {
       console.error('Failed to stop recording', error);
       Alert.alert('Error', 'Failed to stop recording');
-      setRecording(null);
     }
   };
 
   const handleMicPress = () => {
-    if (isRecording) {
+    if (recorderState.isRecording) {
       stopRecording();
     } else {
       startRecording();
     }
   };
 
-  const playRecording = async () => {
+  const playRecording = () => {
     if (!recordingUri) return;
     
     try {
-      if (sound) {
-        await sound.unloadAsync();
-      }
-      
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri: recordingUri });
-      setSound(newSound);
+      audioPlayer.play();
       setIsPlaying(true);
-      
-      await newSound.playAsync();
-      
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          setIsPlaying(false);
-        }
-      });
     } catch (error) {
       console.error('Failed to play recording', error);
       Alert.alert('Error', 'Failed to play recording');
     }
   };
 
-  const stopPlayback = async () => {
-    if (sound) {
-      try {
-        await sound.stopAsync();
-        setIsPlaying(false);
-      } catch (error) {
-        console.error('Failed to stop playback', error);
-      }
+  const stopPlayback = () => {
+    try {
+      audioPlayer.pause();
+      setIsPlaying(false);
+    } catch (error) {
+      console.error('Failed to stop playback', error);
     }
   };
 
@@ -224,20 +212,20 @@ export default function VoiceAgent() {
   };
 
   useEffect(() => {
+    // Update playing state based on player status
+    if (playerStatus.playing) {
+      setIsPlaying(true);
+    } else if (playerStatus.didJustFinish) {
+      setIsPlaying(false);
+    }
+  }, [playerStatus.playing, playerStatus.didJustFinish]);
+
+  useEffect(() => {
     // Cleanup on unmount
     return () => {
-      if (recording) {
-        recording.stopAndUnloadAsync().catch((error) => {
-          console.log('Error unloading recording on cleanup:', error);
-        });
-      }
-      if (sound) {
-        sound.unloadAsync().catch((error) => {
-          console.log('Error unloading sound on cleanup:', error);
-        });
-      }
+      // Audio recorder and player are automatically cleaned up by the hooks
     };
-  }, [recording, sound]);
+  }, []);
 
   const quickQuestions = [
     "Show spending report",
@@ -294,7 +282,7 @@ export default function VoiceAgent() {
           <View className="items-center justify-center">
           
           {/* Lottie Waveform Animation */}
-          {isRecording && (
+          {recorderState.isRecording && (
             <View className="items-center justify-center mb-6">
               <LottieView
                 ref={lottieRef}
@@ -311,7 +299,7 @@ export default function VoiceAgent() {
 
           {/* Status Text */}
           <Text className="text-base text-gray-600 text-center mx-8 leading-6 mb-8">
-            {isRecording 
+            {recorderState.isRecording 
               ? "Recording your voice... Tap the button again to stop"
               : "Or ask me anything by tapping the microphone below"
             }
@@ -352,7 +340,7 @@ export default function VoiceAgent() {
                   width: 70,
                   height: 70,
                   borderRadius: 35,
-                  backgroundColor: isRecording ? '#ef4444' : '#ffffff',
+                  backgroundColor: recorderState.isRecording ? '#ef4444' : '#ffffff',
                   justifyContent: 'center',
                   alignItems: 'center',
                   shadowColor: '#000',
@@ -367,9 +355,9 @@ export default function VoiceAgent() {
                 activeOpacity={0.8}
               >
                 <Ionicons 
-                  name={isRecording ? "stop" : "mic"} 
+                  name={recorderState.isRecording ? "stop" : "mic"} 
                   size={28} 
-                  color={isRecording ? '#ffffff' : '#0ea5e9'} 
+                  color={recorderState.isRecording ? '#ffffff' : '#0ea5e9'} 
                 />
               </TouchableOpacity>
             </Animated.View>
