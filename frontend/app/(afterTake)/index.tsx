@@ -544,12 +544,9 @@ const AfterImageClickedPage = () => {
           </View>
         </View>
 
-<<<<<<< HEAD
         {/* Editing Tools */}
        
 
-=======
->>>>>>> 40e29b8b97234a48c10513f8efdf9a4a96709cf8
         {/* Action Buttons */}
         <View className="px-6 mt-4">
           <View className="flex-row justify-between">
