@@ -185,12 +185,13 @@ export default function Insights() {
       }
 
       // Update insights
-      if (insightsData.insights && insightsData.insights.length > 0) {
+      console.log('📦 Raw insights data received:', JSON.stringify(insightsData, null, 2));
+      if (insightsData && insightsData.insights && insightsData.insights.length > 0) {
         console.log('✅ Insights received:', insightsData.insights.length, 'insights');
-        console.log('Insights data:', JSON.stringify(insightsData.insights, null, 2));
         setInsights(insightsData.insights);
       } else {
-        console.log('⚠️ No insights data received');
+        console.log('⚠️ No insights data received or empty array');
+        console.log('insightsData structure:', insightsData);
       }
 
       console.log('✅ Insights data loaded successfully');

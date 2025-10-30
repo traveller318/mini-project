@@ -4,7 +4,7 @@ import { API_BASE_URL, API_ENDPOINTS, getAuthToken } from '../config/api';
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000, // 30 seconds for AI-powered insights
   headers: {
     'Content-Type': 'application/json',
   },
@@ -163,9 +163,20 @@ class InsightsService {
    * Get insights and recommendations
    */
   async getInsights(): Promise<InsightsData> {
-    const response = await api.get(`${API_ENDPOINTS.INSIGHTS}/recommendations`);
+    try {
+      const response = await api.get(`${API_ENDPOINTS.INSIGHTS}/recommendations`);
+      console.log('🔍 Insights Service Raw Response:', JSON.stringify(response.data, null, 2));
+      
+      if (!response.data || !response.data.data) {
+        console.error('❌ Invalid response structure:', response.data);
+        return { insights: [] };
+      }
 
-    return response.data.data;
+      return response.data.data;
+    } catch (error: any) {
+      console.error('❌ Error in getInsights:', error.response?.data || error.message);
+      throw error;
+    }
   }
 }
 
