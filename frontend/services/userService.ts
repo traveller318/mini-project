@@ -137,8 +137,48 @@ export const updateUserProfile = async (updateData: Partial<UserData>): Promise<
   }
 };
 
+/**
+ * Update user risk profile
+ */
+export const updateRiskProfile = async (riskProfile: 'Low' | 'Moderate' | 'High'): Promise<ApiResponse<any>> => {
+  try {
+    const url = buildApiUrl(`${API_ENDPOINTS.USERS}/risk-profile`);
+    console.log('🔵 Updating risk profile at:', url);
+
+    const response = await axios.put(url, { riskProfile }, getAxiosConfig());
+    console.log('✅ Risk profile updated successfully:', response.data);
+
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Update risk profile error:', error);
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to update risk profile';
+    throw new Error(errorMessage);
+  }
+};
+
+/**
+ * Get financial summary
+ */
+export const getFinancialSummary = async (): Promise<ApiResponse<any>> => {
+  try {
+    const url = buildApiUrl(`${API_ENDPOINTS.USERS}/financial-summary`);
+    console.log('🔵 Fetching financial summary from:', url);
+
+    const response = await axios.get(url, getAxiosConfig());
+    console.log('✅ Financial summary fetched successfully:', response.data);
+
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Get financial summary error:', error);
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch financial summary';
+    throw new Error(errorMessage);
+  }
+};
+
 export default {
   getDashboardData,
   getUserProfile,
   updateUserProfile,
+  updateRiskProfile,
+  getFinancialSummary,
 };

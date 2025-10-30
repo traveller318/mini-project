@@ -92,7 +92,10 @@ const Dashboard = () => {
 
   const Header = () => (
     <View className="flex-row justify-between items-center px-6 pt-4 pb-6">
-      <View className="flex-row items-center">
+      <TouchableOpacity 
+        onPress={() => router.push('/(userProfile)')}
+        className="flex-row items-center"
+      >
         <View className="w-12 h-12 rounded-full bg-blue-600 mr-3 justify-center items-center">
           <Text className="text-white font-bold text-lg">
             {dashboardData?.userData?.name?.substring(0, 2).toUpperCase() || 'JD'}
@@ -104,7 +107,7 @@ const Dashboard = () => {
             {dashboardData?.userData?.name || 'User'}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
       <View className="flex-row items-center gap-2">
         <TouchableOpacity 
           onPress={() => router.push('/(subscription)')}
