@@ -121,6 +121,12 @@ const Dashboard = () => {
         >
           <Ionicons name="wallet-outline" size={20} color="#374151" />
         </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={() => router.push('/(recommander)')}
+          className="w-10 h-10 rounded-full bg-white/20 justify-center items-center"
+        >
+          <Ionicons name="bulb-outline" size={20} color="#374151" />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -149,7 +155,7 @@ const Dashboard = () => {
             </View>
             <Text className="text-gray-600 text-xs mb-1 text-center" numberOfLines={1}>Income</Text>
             <Text className="text-green-600 text-base font-bold text-center" numberOfLines={1}>
-              +${totalIncome.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              +₹{totalIncome.toLocaleString('en-US', { maximumFractionDigits: 0 })}
             </Text>
           </View>
 
@@ -163,7 +169,7 @@ const Dashboard = () => {
             </View>
             <Text className="text-gray-600 text-xs mb-1 text-center" numberOfLines={1}>Expenses</Text>
             <Text className="text-red-600 text-base font-bold text-center" numberOfLines={1}>
-              -${totalExpenses.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              -₹{totalExpenses.toLocaleString('en-US', { maximumFractionDigits: 0 })}
             </Text>
           </View>
 
@@ -181,7 +187,7 @@ const Dashboard = () => {
             </View>
             <Text className="text-gray-600 text-xs mb-1 text-center" numberOfLines={1}>Net Savings</Text>
             <Text className={`text-base font-bold text-center ${netSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`} numberOfLines={1}>
-              {netSavings >= 0 ? '+' : ''}${netSavings.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              {netSavings >= 0 ? '+' : ''}₹{netSavings.toLocaleString('en-US', { maximumFractionDigits: 0 })}
             </Text>
           </View>
         </View>
@@ -198,10 +204,10 @@ const Dashboard = () => {
         <View className="w-56 p-3 mr-3 bg-white rounded-xl shadow-lg">
           <Text className="font-semibold text-gray-800 mb-1 text-sm">{item.title}</Text>
           <Text className="text-xl font-bold text-gray-900 mb-1">
-            ${item.current.toLocaleString()}
+            ₹{item.current.toLocaleString()}
           </Text>
           <Text className="text-gray-500 text-xs mb-2">
-            of ${item.target.toLocaleString()}
+            of ₹{item.target.toLocaleString()}
           </Text>
           
           <View className="h-2 bg-gray-200 rounded-full mb-2">
@@ -222,7 +228,7 @@ const Dashboard = () => {
               {Math.round(progress * 100)}%
             </Text>
             <Text className="text-xs text-gray-600">
-              ${(item.target - item.current).toLocaleString()} left
+              ₹{(item.target - item.current).toLocaleString()} left
             </Text>
           </View>
         </View>
@@ -278,7 +284,7 @@ const Dashboard = () => {
           </View>
         </View>
         <Text className={`font-semibold text-sm ${item.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
-          {item.type === 'income' ? '+' : '-'}${Math.abs(item.amount).toLocaleString()}
+          {item.type === 'income' ? '+' : '-'}₹{Math.abs(item.amount).toLocaleString()}
         </Text>
       </View>
     );

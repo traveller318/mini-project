@@ -264,7 +264,7 @@ const UserProfilePage = () => {
                   <Ionicons name="wallet" size={24} color="#3b82f6" />
                   <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-600 text-xs mt-1">Balance</Text>
                   <Text style={{ fontFamily: 'Poppins-Bold' }} className="text-blue-600 text-lg">
-                    ${profile.balance.toLocaleString()}
+                    ₹{profile.balance.toLocaleString()}
                   </Text>
                 </View>
                 
@@ -274,7 +274,7 @@ const UserProfilePage = () => {
                   <Ionicons name="trending-up" size={24} color="#10b981" />
                   <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-600 text-xs mt-1">Income</Text>
                   <Text style={{ fontFamily: 'Poppins-Bold' }} className="text-green-600 text-lg">
-                    ${profile.income.monthlyAmount.toLocaleString()}
+                    ₹{profile.income.monthlyAmount.toLocaleString()}
                   </Text>
                 </View>
                 
@@ -284,7 +284,7 @@ const UserProfilePage = () => {
                   <Ionicons name="trending-down" size={24} color="#ef4444" />
                   <Text style={{ fontFamily: 'Poppins-Regular' }} className="text-gray-600 text-xs mt-1">Expenses</Text>
                   <Text style={{ fontFamily: 'Poppins-Bold' }} className="text-red-600 text-lg">
-                    ${profile.expense.monthlyAmount.toLocaleString()}
+                    ₹{profile.expense.monthlyAmount.toLocaleString()}
                   </Text>
                 </View>
               </View>
