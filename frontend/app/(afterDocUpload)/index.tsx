@@ -180,7 +180,8 @@ const AfterDocUploadPage = () => {
           name: txn.name,
           amount: txn.amount,
           type: txn.type,
-          category: txn.category
+          category: txn.category,
+          oldMetadata: txn.metadata  // Log what's coming from state
         });
 
         return {
@@ -194,7 +195,10 @@ const AfterDocUploadPage = () => {
           timestamp: txn.timestamp,
           paymentMethod: txn.paymentMethod || 'other',
           notes: '',
-          metadata: txn.metadata,
+          metadata: {
+            source: 'scanned',  // Must be: 'manual', 'scanned', 'imported', or 'recurring'
+            merchantName: merchantName
+          },
           receipt: {
             hasReceipt: true,
             imageUri: receiptDocumentPath,
@@ -325,7 +329,7 @@ const AfterDocUploadPage = () => {
           paymentMethod: txn.paymentMethod || 'other',
           metadata: {
             merchantName: response.data.merchantName,
-            source: 'pdf_scan'
+            // Don't set source here - will be set when saving
           }
         }));
 
