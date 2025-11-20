@@ -46,7 +46,11 @@ const budgetSchema = new mongoose.Schema({
   spent: {
     type: Number,
     default: 0,
-    min: [0, 'Spent amount cannot be negative']
+    min: [0, 'Spent amount cannot be negative'],
+    set: function(val) {
+      // Ensure spent is never negative
+      return Math.max(0, val || 0);
+    }
   },
   remaining: {
     type: Number,

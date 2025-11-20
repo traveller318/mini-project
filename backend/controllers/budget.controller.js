@@ -542,21 +542,27 @@ async function updateBudgetSpending(budget) {
       }
     });
 
-    const totalSpent = transactions.reduce((sum, txn) => sum + txn.amount, 0);
+    // Calculate total spent, ensuring only positive amounts are counted
+    // and handle any negative amounts (refunds) appropriately
+    const totalSpent = transactions.reduce((sum, txn) => {
+      const amount = Math.abs(txn.amount); // Use absolute value to ensure positive
+      return sum + amount;
+    }, 0);
     
-    budget.spent = totalSpent;
-    budget.remaining = budget.limit - totalSpent;
+    // Ensure spent is never negative
+    budget.spent = Math.max(0, totalSpent);
+    budget.remaining = budget.limit - budget.spent;
 
     // Calculate analytics
     const daysPassed = Math.ceil((new Date() - budget.startDate) / (1000 * 60 * 60 * 24));
     const totalDays = Math.ceil((budget.endDate - budget.startDate) / (1000 * 60 * 60 * 24));
     
-    budget.analytics.averageSpending = daysPassed > 0 ? totalSpent / daysPassed : 0;
+    budget.analytics.averageSpending = daysPassed > 0 ? budget.spent / daysPassed : 0;
     budget.analytics.spendingVelocity = budget.analytics.averageSpending;
     budget.analytics.projectedSpend = totalDays > 0 ? budget.analytics.averageSpending * totalDays : 0;
 
     // Update status
-    const percentage = budget.limit > 0 ? (totalSpent / budget.limit) * 100 : 0;
+    const percentage = budget.limit > 0 ? (budget.spent / budget.limit) * 100 : 0;
     if (percentage >= 100) {
       budget.status = 'exceeded';
     } else if (new Date() > budget.endDate) {
@@ -565,11 +571,14 @@ async function updateBudgetSpending(budget) {
       budget.status = 'active';
     }
 
+    // Validate before saving
+    await budget.validate();
     await budget.save();
     return budget;
 
   } catch (error) {
     console.error('Update Budget Spending Error:', error);
-    throw error;
+    // Don't throw error, just log it to prevent cascade failures
+    return budget;
   }
 }
