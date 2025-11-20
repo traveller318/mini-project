@@ -21,6 +21,29 @@ exports.getDashboard = async (req, res) => {
 
     console.log('User Data:', user);
 
+    // Get all transactions for calculations
+    const allTransactions = await Transaction.find({ userId, isDeleted: false });
+
+    // Calculate total income and expenses from actual transactions
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    allTransactions.forEach(txn => {
+      if (txn.type === 'income') {
+        totalIncome += txn.amount;
+      } else if (txn.type === 'expense') {
+        totalExpense += txn.amount;
+      }
+    });
+
+    // Calculate net savings
+    const netSavings = totalIncome - totalExpense;
+
+    // Calculate percentages (avoiding division by zero)
+    const total = totalIncome + totalExpense;
+    const incomePercentage = total > 0 ? ((totalIncome / total) * 100).toFixed(2) : 0;
+    const expensePercentage = total > 0 ? ((totalExpense / total) * 100).toFixed(2) : 0;
+
     // Get recent transactions (last 5)
     const recentTransactions = await Transaction.find({ userId, isDeleted: false })
       .sort({ createdAt: -1 })
@@ -51,13 +74,14 @@ exports.getDashboard = async (req, res) => {
           balance: user.balance,
           cardNumber: user.cardNumber,
           income: {
-            amount: user.income.monthlyAmount,
-            percentage: user.income.percentage
+            amount: totalIncome,
+            percentage: parseFloat(incomePercentage)
           },
           expense: {
-            amount: user.expense.monthlyAmount,
-            percentage: user.expense.percentage
-          }
+            amount: totalExpense,
+            percentage: parseFloat(expensePercentage)
+          },
+          netSavings: netSavings
         },
         savingGoals: savingGoals.map(goal => ({
           id: goal._id,

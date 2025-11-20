@@ -353,24 +353,24 @@ const AfterDocUploadPage = () => {
   // Helper function to get category icon
   const getCategoryIcon = (category: string): string => {
     const iconMap: { [key: string]: string } = {
-      'Food': '🍽️',
-      'Transport': '🚗',
-      'Shopping': '🛍️',
-      'Entertainment': '🎮',
-      'Bills': '📄',
-      'Health': '🏥',
-      'Education': '📚',
-      'Travel': '✈️',
-      'Groceries': '🛒',
-      'Rent': '🏠',
-      'Other': '💳',
-      'Salary': '💰',
-      'Business': '💼',
-      'Investment': '📈',
-      'Freelance': '💻',
-      'Gift': '🎁'
+      'Food': 'restaurant-outline',
+      'Transport': 'car-outline',
+      'Shopping': 'bag-handle-outline',
+      'Entertainment': 'game-controller-outline',
+      'Bills': 'document-text-outline',
+      'Health': 'medical-outline',
+      'Education': 'school-outline',
+      'Travel': 'airplane-outline',
+      'Groceries': 'basket-outline',
+      'Rent': 'home-outline',
+      'Other': 'ellipsis-horizontal-outline',
+      'Salary': 'cash-outline',
+      'Business': 'briefcase-outline',
+      'Investment': 'trending-up-outline',
+      'Freelance': 'laptop-outline',
+      'Gift': 'gift-outline'
     };
-    return iconMap[category] || '💳';
+    return iconMap[category] || 'ellipsis-horizontal-outline';
   };
 
   // Helper function to format timestamp
