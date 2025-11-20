@@ -19,6 +19,8 @@ exports.getDashboard = async (req, res) => {
       });
     }
 
+    console.log('User Data:', user);
+
     // Get recent transactions (last 5)
     const recentTransactions = await Transaction.find({ userId, isDeleted: false })
       .sort({ createdAt: -1 })
