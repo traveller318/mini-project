@@ -119,6 +119,7 @@ export default function Transactions() {
       const response = await getTransactionsByCategory();
       
       if (response.success && response.data.categories) {
+        console.log('Fetched categories:', JSON.stringify(response.data.categories));
         setTransactionCategories(response.data.categories);
       }
     } catch (error: any) {
@@ -139,6 +140,7 @@ export default function Transactions() {
   const handleTabChange = (tabKey: string) => {
     setActiveTab(tabKey);
     if (tabKey === 'groups' && transactionCategories.length === 0) {
+      console.log('Fetching transaction categories...');
       fetchTransactionsByCategory();
     }
   };
@@ -513,7 +515,7 @@ export default function Transactions() {
 
   const CategoryItem = ({ category }: { category: any }) => {
     const isExpanded = expandedCategories.includes(category.name);
-    const avgAmount = category.totalAmount / category.transactions.length;
+    const isPositive = category.totalAmount > 0;
     
     return (
       <View className="bg-white mx-4 mb-3 rounded-2xl shadow-sm border border-gray-50 overflow-hidden">
@@ -524,13 +526,13 @@ export default function Transactions() {
           <View className="flex-row items-center flex-1">
             <View 
               className={`w-12 h-12 rounded-full items-center justify-center mr-3 ${
-                avgAmount >= 0 ? 'bg-green-100' : 'bg-red-100'
+                isPositive ? 'bg-green-100' : 'bg-red-100'
               }`}
             >
               <Ionicons 
                 name={category.icon || 'ellipsis-horizontal-outline'} 
                 size={24} 
-                color={avgAmount >= 0 ? '#22c55e' : '#ef4444'} 
+                color={isPositive ? '#22c55e' : '#ef4444'} 
               />
             </View>
             <View className="flex-1">
@@ -539,10 +541,8 @@ export default function Transactions() {
             </View>
           </View>
           <View className="items-end">
-            <Text className={`font-bold text-lg ${
-              category.totalAmount >= 0 ? 'text-green-500' : 'text-red-500'
-            }`}>
-              {category.totalAmount >= 0 ? '+' : ''} ₹{category.totalAmount.toLocaleString()}
+            <Text className="font-bold text-lg text-gray-700">
+              ₹{Math.abs(category.totalAmount).toLocaleString()}
             </Text>
             <Text className="text-gray-400 text-xs">
               {isExpanded ? '▲' : '▼'}

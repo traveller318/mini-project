@@ -203,11 +203,7 @@ export default function VoiceAgent() {
       setAiResponse(response.data.response);
 
       // Show success with response
-      Alert.alert(
-        'AI Response',
-        response.data.response,
-        [{ text: 'OK', onPress: () => console.log('User acknowledged response') }]
-      );
+      
 
     } catch (error: any) {
       console.error('❌ AI Processing error:', error);
@@ -265,13 +261,6 @@ export default function VoiceAgent() {
 
       // Update UI with results
       setAiResponse(response.data.response);
-
-      // Show response
-      Alert.alert(
-        'AI Response',
-        response.data.response,
-        [{ text: 'OK' }]
-      );
 
     } catch (error: any) {
       console.error('❌ Quick question error:', error);
